@@ -78,6 +78,26 @@ CI needs to tell "this image breaks the budget" from "the pipeline broke". Exit 
 
 GitHub reads workflow commands from stdout. muscles prints them only with table and plain output, never into JSON or Markdown, which are usually piped into a parser or the job summary.
 
+### D10. Fixes claim bytes, so savings add up
+
+`images inspect` ranks fixes by what they save. A byte of waste can look like several problems at once: apt lists left in one layer and deleted in another are both a package cache and a deletion that frees nothing. Each wasted byte is claimed by the first fix that explains it, package caches first because their fix is the most direct, so no byte is counted twice and the savings sum to the image's waste. Inspect ignores the `warn.*` thresholds for the same reason: a total that doesn't add up isn't trustworthy.
+
+### D11. Dockerfile lines by matching, not by build metadata
+
+Images don't record which line made a layer. Rather than require BuildKit provenance, muscles matches the image's steps to the final stage's instructions, from the top layer down, comparing commands with flags (`--mount`, `--chown`) dropped and COPY falling back to its destination. Matching from the top leaves the base image's layers unmatched, and a step that matches nothing simply has no line: a stale Dockerfile degrades, it doesn't mislead.
+
+### D12. Packages from the databases, not from file paths
+
+Package managers already write down what is installed. Reading the dpkg status file, apk's database and pip's `METADATA` as layers are indexed (and caching the result with the index) gives exact names and versions for "what did this layer install" and "what changed between images", at the cost of reading a few small files.
+
+### D13. Shortcuts rewrite argv, with typos left alone
+
+`muscles IMAGE` and `muscles layers IMAGE` are rewritten to the full commands before cobra parses them, so help, flags and errors are those of the full command. A word that is or nearly is a command name is never taken for an image, so `muscles lyers` still says "did you mean layers". Scripts should use the full commands.
+
+### D14. Next hints only for a person
+
+A `Next:` line helps someone exploring at a terminal and is noise in logs, so it is printed on stderr only when stderr is a terminal, and never with `--quiet`.
+
 ## Testing
 
 Total coverage must stay at 90% or more (CI enforces it). Images for tests are built in memory by `internal/testimg`; the registry tests use go-containerregistry's in-memory registry; the daemon is faked through `cli.Options`. Command tests drive `cli.Run` with buffers and a fake terminal.

@@ -65,9 +65,12 @@ layer, type, size, path, count, note.` + "\n" + imageHelp,
 			if err != nil {
 				return err.(*exitError).withCmd(cmd)
 			}
-			r, err := a.analyze(cmd.Context(), args[0])
+			r, err := a.analyzeBuilt(cmd.Context(), args[0])
 			if err != nil {
 				return err
+			}
+			if r.Waste > 0 {
+				a.next("muscles images inspect "+shellQuote(args[0]), "what to fix first")
 			}
 			if cf.layer >= len(r.Layers) {
 				return usageErrorf("--layer %d: %s has %d layers (0 to %d)", cf.layer, r.Ref, len(r.Layers), len(r.Layers)-1).withCmd(cmd)
@@ -159,7 +162,7 @@ func (a *app) printChanges(r *analysis.Report, cf changeFilter, minSize int64) e
 		if f == formatTable {
 			where := "any layer"
 			if cf.layer >= 0 {
-				where = fmt.Sprintf("layer %d (%s)", cf.layer, r.Layers[cf.layer].Step)
+				where = fmt.Sprintf("layer %d (%s)", cf.layer, a.stepWithLine(r.Layers[cf.layer]))
 			}
 			fmt.Fprintf(a.out, "No changes in %s match.\n", where)
 		}
@@ -183,7 +186,7 @@ func (a *app) printChanges(r *analysis.Report, cf changeFilter, minSize int64) e
 	}
 	title := "Changes in " + r.Ref
 	if cf.layer >= 0 {
-		title = fmt.Sprintf("Changes in layer %d of %s", cf.layer, r.Ref)
+		title = fmt.Sprintf("Changes in layer %d of %s: %s", cf.layer, r.Ref, a.stepWithLine(r.Layers[cf.layer]))
 	}
 	return a.render(f, t, title)
 }

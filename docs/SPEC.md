@@ -63,7 +63,7 @@ Questions that should take seconds to answer:
 
 | # | Where | Scenario | Command |
 |---|-------|----------|---------|
-| S1 | Local | "Why is this image so big?" | `muscles layers list app:dev`, then `muscles waste list app:dev` |
+| S1 | Local | "Why is this image so big, and what do I change?" | `muscles app:dev --dockerfile Dockerfile` (`images inspect`), then `muscles waste list app:dev` |
 | S2 | Local | "What did layer 4 install?" | `muscles changes list app:dev --layer 4` |
 | S3 | Local | "What changed since the last release?" | `muscles images diff ghcr.io/acme/app:1.8.0 app:dev` |
 | S4 | CI | "Fail the PR if the image breaks our budget." | `muscles images check app.tar --baseline ghcr.io/acme/app:main` |
@@ -76,16 +76,19 @@ Following CLI Style §1 and §5, commands are `muscles <noun> <verb> <target> --
 
 | Command | Purpose |
 |---|---|
+| `images inspect IMAGE` | Size, pull size, waste; ranked fixes with savings, layer, step, Dockerfile line, problem and fix; files worth a look; biggest layers. `--limit`. `muscles IMAGE` runs it. |
 | `layers list IMAGE` | One row per layer: size, `+ ~ ◌ -` counts, step, note. Empty steps dimmed between rows. |
 | `changes list IMAGE` | Paths changed, rolled up by directory: `--layer`, `--type`, `--path`, `--min-size`, `--files`, `--limit`. |
 | `waste list IMAGE` | Hidden bytes with the storing and hiding layers: `--files`, `--limit`. |
-| `images diff BASE TARGET` | Shared layers, per-layer size changes, final filesystem diff. |
+| `images diff BASE TARGET` | A one-sentence verdict, shared layers, per-layer size changes, package changes, final filesystem diff. |
 | `images check IMAGE` | Budgets and forbidden paths: `--baseline`, `--max-size`, `--max-compressed`, `--max-waste`, `--max-growth`, `--max-layers`. |
 | `config list` | Every setting, value and origin. |
 | `cache list`, `cache delete [--preview]` | The layer index cache. |
 | `help [COMMAND] [--json]`, `version [--json]`, `completion SHELL` | Self-documentation (CLI Style §23 to §26). |
 
-Global flags: `-o/--output table|plain|json|markdown`, `--json` (wins over `--output`), `--source`, `--platform`, `--config`, `--cache-dir`, `--fresh`, `--timeout`, `--no-color`, `-q/--quiet`, `-v/--verbose` (wins over `--quiet`).
+Global flags: `-o/--output table|plain|json|markdown`, `--json` (wins over `--output`), `--source`, `--platform`, `--config`, `--cache-dir`, `--dockerfile`, `--fresh`, `--timeout`, `--no-color`, `-q/--quiet`, `-v/--verbose` (wins over `--quiet`).
+
+Shortcuts: `muscles IMAGE` is `muscles images inspect IMAGE`; `muscles layers|changes|waste IMAGE` runs that noun's `list`. A word that is or nearly is a command is never taken as an image. At a terminal, commands end with a `Next:` hint on stderr.
 
 The [CLI reference](cli.md) documents every flag and output shape.
 
@@ -142,7 +145,10 @@ History entries that made a layer are paired with layers aligned at the top (som
 ### 7.4 Summaries and notes
 
 - **Mostly:** descend from `/` while one directory holds at least 80% of a layer's changed bytes; if none dominates, the top three directories holding at least 10% each.
-- **Notes:** `package_cache` (apt, apk, yum, dnf, pip, npm, yarn, Go build cache), `hidden_delete`, `permission_rewrite` (≥ `warn.permission_rewrite`), `large_file` (≥ `warn.large_file`).
+- **Notes:** `package_cache` (apt, apk, yum, dnf, pip, npm, yarn, Go build cache), `hidden_delete`, `permission_rewrite` (≥ `warn.permission_rewrite`), `overwrite` (≥ `warn.overwrite`), `large_file` (≥ `warn.large_file`). Every note carries a `fix`.
+- **Packages:** the dpkg status file, apk's installed database and pip's `.dist-info/METADATA` are parsed as layers are indexed; each layer records the packages it installed, upgraded and removed, and its summary says so.
+- **Fixes:** `images inspect` turns notes into fixes, each claiming the wasted bytes it would save (package caches first) so no byte is counted twice and the savings add up to the waste.
+- **Dockerfile lines:** with `--dockerfile`, the final stage's instructions are matched to steps from the top down, ignoring flags; unmatched steps have no line.
 
 ### 7.5 Rollup
 

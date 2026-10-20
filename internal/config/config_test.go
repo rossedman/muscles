@@ -38,7 +38,7 @@ func TestDefaults(t *testing.T) {
 		t.Fatalf("files: %+v", f)
 	}
 	o, _ := c.Analysis()
-	if o.LargeFile != 50_000_000 || o.PermissionRewrite != 1_000_000 {
+	if o.LargeFile != 50_000_000 || o.PermissionRewrite != 1_000_000 || o.Overwrite != 10_000_000 || c.Dockerfile != "" {
 		t.Fatalf("analysis: %+v", o)
 	}
 	if c.IEC() {
@@ -106,6 +106,7 @@ func TestErrors(t *testing.T) {
 		"check:\n  max_layers: -1\n":        "check.max_layers",
 		"check:\n  forbid: ['[x']\n":        "invalid path pattern",
 		"warn:\n  large_file: huge\n":       "warn.large_file",
+		"warn:\n  overwrite: lots\n":        "warn.overwrite",
 		"warn:\n  permission_rewrite: 1x\n": "warn.permission_rewrite",
 		"check:\n  max_layers: [1, 2]\n":    "config:",
 	}

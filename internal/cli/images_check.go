@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -41,7 +42,10 @@ large files) are reported as warnings and never fail.
                                          directories only
 
 When GITHUB_ACTIONS is set, table and plain output also print ::error and
-::warning workflow commands, so results show up on the run.` + "\n" + imageHelp,
+::warning workflow commands, so results show up on the run; with
+--dockerfile they point at the line that made the layer. Every failure and
+warning says how to fix it. Plain output has one line per rule:
+status, rule, result, detail, fix, dockerfile line (0 if unknown).` + "\n" + imageHelp,
 		Example: `  muscles images check app:dev
   muscles images check app.tar --baseline ghcr.io/acme/app:main --max-growth 5%
   muscles images check app.tar --max-size 800MB --max-waste 50MB --json`,
@@ -55,7 +59,7 @@ When GITHUB_ACTIONS is set, table and plain output also print ::error and
 			if err != nil {
 				return usageErrorf("%v", err).withCmd(cmd)
 			}
-			img, err := a.analyze(cmd.Context(), args[0])
+			img, err := a.analyzeBuilt(cmd.Context(), args[0])
 			if err != nil {
 				return err
 			}
@@ -70,6 +74,7 @@ When GITHUB_ACTIONS is set, table and plain output also print ::error and
 				return err
 			}
 			if !rep.OK() {
+				a.next("muscles images inspect "+shellQuote(args[0]), "the fixes that save the most")
 				return &exitError{code: ExitCheckFailed, kind: "CHECK_FAILED", err: fmt.Errorf("%d of %d checks failed", rep.Failed, len(rep.Results)-rep.Warnings)}
 			}
 			return nil
@@ -105,7 +110,14 @@ func (a *app) printCheck(rep check.Report) error {
 			if r.Detail != "" {
 				msg += " (" + r.Detail + ")"
 			}
-			fmt.Fprintf(a.opts.Stdout, "::%s title=muscles %s::%s\n", level, r.Rule, ghEscape(msg))
+			if r.Fix != "" {
+				msg += "\nFix: " + r.Fix
+			}
+			where := ""
+			if r.Line > 0 {
+				where = fmt.Sprintf("file=%s,line=%d,", ghProperty(a.cfg.Dockerfile), r.Line)
+			}
+			fmt.Fprintf(a.opts.Stdout, "::%s %stitle=muscles %s::%s\n", level, where, r.Rule, ghEscape(msg))
 		}
 	}
 	if len(rep.Results) == 0 {
@@ -118,9 +130,13 @@ func (a *app) printCheck(rep check.Report) error {
 		check.Pass: a.th.Painter(a.th.OK), check.Fail: a.th.Painter(a.th.Err),
 		check.Warn: a.th.Painter(a.th.Warn), check.Skip: a.th.Painter(a.th.Muted),
 	}
-	t := &ui.Table{Columns: []ui.Column{{Title: "STATUS"}, {Title: "RULE"}, {Title: "RESULT"}, {Title: "DETAIL"}}}
+	t := &ui.Table{Columns: []ui.Column{{Title: "STATUS"}, {Title: "RULE"}, {Title: "RESULT"}, {Title: "DETAIL", Max: 60}}}
 	for _, r := range rep.Results {
-		t.Add(ui.Cell{Text: r.Status.Symbol() + " " + string(r.Status), Plain: string(r.Status), Paint: paint[r.Status]}, ui.C(r.Rule), ui.C(r.Message), ui.Cell{Text: r.Detail, Paint: a.th.Painter(a.th.Muted)})
+		cells := []ui.Cell{{Text: r.Status.Symbol() + " " + string(r.Status), Plain: string(r.Status), Paint: paint[r.Status]}, ui.C(r.Rule), ui.C(r.Message), {Text: r.Detail, Paint: a.th.Painter(a.th.Muted)}}
+		if f == formatPlain {
+			cells = append(cells, ui.C(r.Fix), ui.C(fmt.Sprint(r.Line)))
+		}
+		t.Add(cells...)
 	}
 	if err := a.render(f, t, "Checks for "+rep.Image); err != nil {
 		return err
@@ -128,6 +144,7 @@ func (a *app) printCheck(rep check.Report) error {
 	if f == formatPlain {
 		return nil
 	}
+	a.printCheckFixes(f, rep, paint)
 	summary := fmt.Sprintf("%d failed, %s", rep.Failed, plural(rep.Warnings, "warning"))
 	if rep.OK() {
 		summary = "all checks passed, " + plural(rep.Warnings, "warning")
@@ -136,12 +153,50 @@ func (a *app) printCheck(rep check.Report) error {
 	return err
 }
 
+// printCheckFixes lists how to fix each failure and warning, once per
+// distinct fix.
+func (a *app) printCheckFixes(f string, rep check.Report, paint map[check.Status]func(string) string) {
+	seen := map[string]bool{}
+	var lines []string
+	for _, r := range rep.Results {
+		if r.Fix == "" || seen[r.Rule+r.Fix] {
+			continue
+		}
+		seen[r.Rule+r.Fix] = true
+		where := ""
+		if r.Line > 0 {
+			where = fmt.Sprintf(" (%s:%d)", filepath.Base(a.cfg.Dockerfile), r.Line)
+		} else if r.Layer != nil {
+			where = fmt.Sprintf(" (L%d)", *r.Layer)
+		}
+		if f == formatMarkdown {
+			lines = append(lines, fmt.Sprintf("- **%s**%s: %s", r.Rule, where, r.Fix))
+			continue
+		}
+		lead := fmt.Sprintf("%s%s: ", r.Rule, where)
+		lines = append(lines, fmt.Sprintf(" %s %s%s", paint[r.Status](r.Status.Symbol()), lead, a.wrap(r.Fix, 3+len(lead), 3)))
+	}
+	if len(lines) == 0 {
+		return
+	}
+	if f == formatMarkdown {
+		fmt.Fprintf(a.out, "\n**How to fix**\n\n%s\n", strings.Join(lines, "\n"))
+		return
+	}
+	fmt.Fprintf(a.out, "\n%s\n%s\n", a.th.Paint(a.th.Head, "HOW TO FIX"), strings.Join(lines, "\n"))
+}
+
 // plural is "1 warning" or "2 warnings".
 func plural(n int, word string) string {
 	if n == 1 {
 		return "1 " + word
 	}
 	return fmt.Sprintf("%d %ss", n, word)
+}
+
+// ghProperty escapes a workflow command's property value.
+func ghProperty(s string) string {
+	return strings.NewReplacer("%", "%25", "\r", "%0D", "\n", "%0A", ":", "%3A", ",", "%2C").Replace(s)
 }
 
 // ghEscape escapes a workflow command's message.

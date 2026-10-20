@@ -12,6 +12,20 @@ The STEP column comes from the image config's build history. muscles cleans it u
 
 Some builders don't record history. Then STEP shows `?`, and everything else still works.
 
+### Dockerfile lines
+
+Pass the Dockerfile the image was built from and each step shows its line:
+
+```sh
+muscles layers list app:dev --dockerfile Dockerfile
+```
+
+```text
+3  140 MB  4  ·  ·  2  RUN pip install -r requirements.txt (Dockerfile:9)  installed numpy 2.1.0, pandas 2.2.3 and 3 more (pip)
+```
+
+muscles matches steps to the last build stage's instructions from the top layer down, ignoring flags like `--mount` and `--chown`, so the base image's layers stay unmatched. A step that matches no line (the Dockerfile changed since the build) just shows no line. Set `dockerfile: Dockerfile` in `.muscles.yaml` to always use it.
+
 ## The four kinds of change
 
 Each tar entry in a layer is compared with the filesystem built from all the layers below it:
@@ -27,16 +41,17 @@ Counts in `layers list` are files, symlinks and other non-directory entries. A d
 
 ## Notes
 
-The NOTE column shows where most of a layer's bytes went (`mostly /usr/local/lib/python3.12/site-packages (151 MB)`), or a warning:
+The NOTE column says what a layer did: the packages it installed, upgraded or removed, read from the dpkg (Debian, Ubuntu), apk (Alpine) and pip package databases (`installed curl 7.88.1 and git 2.39.5 (dpkg)`), or else where most of its bytes went (`mostly /usr/local/lib/python3.12/site-packages (151 MB)`). Or a warning:
 
 | Note | What it means | Usual fix |
 |---|---|---|
 | `apt lists left behind: 12 MB` | A package manager cache is in the layer. muscles knows apt, apk, yum, dnf, pip, npm, yarn and the Go build cache. | Clean it in the same `RUN`: `apt-get install ... && rm -rf /var/lib/apt/lists/*`, `pip install --no-cache-dir`, or a cache mount. |
 | `deletes 12 MB that L1 still stores` | A deletion that frees nothing: the bytes are in an earlier layer. | Delete in the layer that created the files. |
 | `96 MB permission-only rewrite` | Files stored again just to change owner or mode. | `COPY --chown=app:app`, `COPY --chmod`, or set ownership in the layer that creates the files. |
+| `replaces 40 MB that L0 still stores` | A layer overwrote at least `warn.overwrite` (10 MB) of earlier layers' files; both copies are stored. | Install the final version once, or start from a base image that already has it. |
 | `large file /app/model.bin (210 MB)` | A single file at least `warn.large_file` (50 MB). | Worth a look; maybe it belongs in a volume or a separate image. |
 
-When a layer has several warnings, the table shows the first and `(+N more)`; `--json` has them all. Thresholds are settings: see [Configuration](configuration.md).
+When a layer has several warnings, the table shows the first and `(+N more)`; `--json` has them all, each with its `fix`. Thresholds are settings: see [Configuration](configuration.md). For the fixes ranked by what they save, run [`muscles IMAGE`](waste.md#fix-it).
 
 ## Looking inside a layer
 

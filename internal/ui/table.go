@@ -22,6 +22,9 @@ type Cell struct {
 	Text  string
 	Plain string
 	Paint func(string) string
+	// Tail is how many bytes at the end of Text survive truncation, like
+	// a " (Dockerfile:12)" suffix.
+	Tail int
 }
 
 // C returns an unstyled cell.
@@ -45,7 +48,11 @@ func (t *Table) Render(w io.Writer, th *Theme) error {
 	cell := func(i int, c Cell) string {
 		s := c.Text
 		if m := t.Columns[i].Max; m > 0 && ansi.StringWidth(s) > m {
-			s = ansi.Truncate(s, m-1, "") + "…"
+			tail := ""
+			if c.Tail > 0 && c.Tail < len(s) && ansi.StringWidth(s[len(s)-c.Tail:]) < m-1 {
+				s, tail = s[:len(s)-c.Tail], s[len(s)-c.Tail:]
+			}
+			s = ansi.Truncate(s, m-1-ansi.StringWidth(tail), "") + "…" + tail
 		}
 		return s
 	}

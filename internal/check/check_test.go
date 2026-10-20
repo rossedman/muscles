@@ -110,3 +110,37 @@ func TestRunEdges(t *testing.T) {
 		t.Error("file waste")
 	}
 }
+
+func TestFixes(t *testing.T) {
+	base, img := analyze(t, "app:1", testimg.App(100)), analyze(t, "app:2", testimg.AppNext(100))
+	img.Layers[4].Line = 9
+	r := Run(base, img, Budget{MaxSize: 1, MaxGrowth: size.Limit{Bytes: 1}, MaxLayers: 1, Forbid: []string{"**/*.onnx"}}, false)
+	fixes := map[string]Result{}
+	for _, x := range r.Results {
+		if x.Status == Fail || x.Status == Warn {
+			fixes[x.Rule] = x
+		}
+	}
+	if !strings.Contains(fixes["size"].Fix, "muscles images inspect app:1") {
+		t.Errorf("size fix: %+v", fixes["size"])
+	}
+	if !strings.Contains(fixes["growth"].Fix, "muscles images diff app:2 app:1") {
+		t.Errorf("growth fix: %+v", fixes["growth"])
+	}
+	if fixes["layers"].Fix == "" {
+		t.Error("layers fix")
+	}
+	if f := fixes["forbid"]; !strings.Contains(f.Fix, ".dockerignore") || f.Layer == nil || *f.Layer != 5 {
+		t.Errorf("forbid fix: %+v", f)
+	}
+	if f := fixes["large file"]; f.Fix == "" || f.Layer == nil || *f.Layer != 4 {
+		t.Errorf("note fix: %+v", f)
+	}
+	// Dockerfile lines come from the checked image.
+	r = Run(img, nil, Budget{}, false)
+	for _, x := range r.Results {
+		if x.Rule == "large file" && x.Line != 9 {
+			t.Errorf("line: %+v", x)
+		}
+	}
+}

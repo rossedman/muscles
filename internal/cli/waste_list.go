@@ -42,7 +42,8 @@ first, with the layer that stored them and the layer that hid them:
 
 Fix waste by doing the work in the layer that created the files (for
 example, clean the apt cache in the same RUN that filled it, or COPY
---chown instead of a later chown -R). Plain output has one line per row:
+--chown instead of a later chown -R); ` + "`muscles images inspect`" + ` ranks
+the fixes by what they save. Plain output has one line per row:
 size, path, count, reason, stored-in layer, hidden-by layer.` + "\n" + imageHelp,
 		Example: `  muscles waste list app:dev
   muscles waste list app:dev --files --limit 50
@@ -53,9 +54,12 @@ size, path, count, reason, stored-in layer, hidden-by layer.` + "\n" + imageHelp
 			if err != nil {
 				return err
 			}
-			r, err := a.analyze(cmd.Context(), args[0])
+			r, err := a.analyzeBuilt(cmd.Context(), args[0])
 			if err != nil {
 				return err
+			}
+			if r.Waste > 0 {
+				a.next("muscles images inspect "+shellQuote(args[0]), "the fixes, ranked by what they save")
 			}
 			if files {
 				limit = 0
@@ -79,12 +83,15 @@ func (a *app) printWaste(r *analysis.Report, rows []analysis.WasteRow) error {
 		}
 		return nil
 	}
-	layer := func(i int) string { return fmt.Sprintf("L%d %s", i, r.Layers[i].Step) }
+	layer := func(i int) ui.Cell {
+		c := a.stepCell(fmt.Sprintf("L%d ", i), r.Layers[i])
+		c.Paint = a.th.Painter(a.th.Muted)
+		return c
+	}
 	t := &ui.Table{Columns: []ui.Column{{Title: "SIZE", Right: true}, {Title: "PATH"}, {Title: "REASON"}, {Title: "STORED IN", Max: 36}, {Title: "HIDDEN BY", Max: 36}}}
 	if f == formatPlain {
 		t.Columns = []ui.Column{{Title: "SIZE"}, {Title: "PATH"}, {Title: "COUNT"}, {Title: "REASON"}, {Title: "STORED IN"}, {Title: "HIDDEN BY"}}
 	}
-	dim := a.th.Painter(a.th.Muted)
 	for _, w := range rows {
 		p := w.Path
 		if w.Dir {
@@ -98,7 +105,7 @@ func (a *app) printWaste(r *analysis.Report, rows []analysis.WasteRow) error {
 		if w.Dir {
 			reason += fmt.Sprintf(" (%d files)", w.Count)
 		}
-		t.Add(a.sizeCell(w.Size), ui.C(p), ui.Cell{Text: reason, Paint: a.th.Painter(a.th.Warn)}, ui.Cell{Text: layer(w.StoredIn), Paint: dim}, ui.Cell{Text: layer(w.HiddenBy), Paint: dim})
+		t.Add(a.sizeCell(w.Size), ui.C(p), ui.Cell{Text: reason, Paint: a.th.Painter(a.th.Warn)}, layer(w.StoredIn), layer(w.HiddenBy))
 	}
 	if err := a.render(f, t, "Waste in "+r.Ref); err != nil {
 		return err

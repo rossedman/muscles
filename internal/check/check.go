@@ -64,6 +64,9 @@ type Result struct {
 	Status  Status `json:"status"`
 	Message string `json:"message"`
 	Detail  string `json:"detail,omitempty"`
+	Fix     string `json:"fix,omitempty"`             // what to change, for a fail or warn
+	Layer   *int   `json:"layer,omitempty"`           // the layer at fault, when there is one
+	Line    int    `json:"dockerfile_line,omitempty"` // that layer's Dockerfile line, when known
 }
 
 // Report is the outcome of every rule.
@@ -83,6 +86,9 @@ func Run(img, base *analysis.Report, b Budget, iec bool) Report {
 	f := func(n int64) string { return size.Format(n, iec) }
 	rep := Report{Image: img.Ref}
 	add := func(r Result) {
+		if r.Layer != nil && *r.Layer < len(img.Layers) {
+			r.Line = img.Layers[*r.Layer].Line
+		}
 		rep.Results = append(rep.Results, r)
 		switch r.Status {
 		case Fail:
@@ -91,11 +97,12 @@ func Run(img, base *analysis.Report, b Budget, iec bool) Report {
 			rep.Warnings++
 		}
 	}
+	inspect := fmt.Sprintf("Run `muscles images inspect %s` for the fixes that save the most.", img.Ref)
 	limit := func(rule string, got, max int64, what string) {
 		if got <= max {
 			add(Result{Rule: rule, Status: Pass, Message: fmt.Sprintf("%s ≤ %s", f(got), f(max))})
 		} else {
-			add(Result{Rule: rule, Status: Fail, Message: fmt.Sprintf("%s > %s", f(got), f(max)), Detail: what})
+			add(Result{Rule: rule, Status: Fail, Message: fmt.Sprintf("%s > %s", f(got), f(max)), Detail: what, Fix: inspect})
 		}
 	}
 	if b.MaxSize > 0 {
@@ -116,6 +123,7 @@ func Run(img, base *analysis.Report, b Budget, iec bool) Report {
 			r := Result{Rule: "growth", Status: Pass, Message: fmt.Sprintf("%s ≤ +%s vs %s", size.FormatDelta(delta, iec), f(max), base.Ref)}
 			if delta > max {
 				r.Status, r.Message = Fail, fmt.Sprintf("%s > +%s vs %s", size.FormatDelta(delta, iec), f(max), base.Ref)
+				r.Fix = fmt.Sprintf("Run `muscles images diff %s %s` to see what grew.", base.Ref, img.Ref)
 			}
 			add(r)
 		}
@@ -125,7 +133,7 @@ func Run(img, base *analysis.Report, b Budget, iec bool) Report {
 		if n <= b.MaxLayers {
 			add(Result{Rule: "layers", Status: Pass, Message: fmt.Sprintf("%d ≤ %d", n, b.MaxLayers)})
 		} else {
-			add(Result{Rule: "layers", Status: Fail, Message: fmt.Sprintf("%d > %d", n, b.MaxLayers)})
+			add(Result{Rule: "layers", Status: Fail, Message: fmt.Sprintf("%d > %d", n, b.MaxLayers), Fix: "Combine consecutive RUN steps, or build in stages and copy only the result."})
 		}
 	}
 	for _, pat := range b.Forbid {
@@ -140,12 +148,15 @@ func Run(img, base *analysis.Report, b Budget, iec bool) Report {
 				break
 			}
 			e := img.Final[h]
-			add(Result{Rule: "forbid", Status: Fail, Message: fmt.Sprintf("%s matches %q", h, pat), Detail: fmt.Sprintf("added in L%d %s", e.Layer, img.Layers[e.Layer].Step)})
+			layer := e.Layer
+			add(Result{Rule: "forbid", Status: Fail, Message: fmt.Sprintf("%s matches %q", h, pat), Detail: fmt.Sprintf("added in L%d %s", e.Layer, img.Layers[e.Layer].Step),
+				Fix: fmt.Sprintf("Keep it out of the build context with .dockerignore, or stop adding it in L%d.", e.Layer), Layer: &layer})
 		}
 	}
 	for _, l := range img.Layers {
 		for _, n := range l.Notes {
-			add(Result{Rule: strings.ReplaceAll(n.Kind, "_", " "), Status: Warn, Message: n.Message, Detail: fmt.Sprintf("L%d %s", l.Index, l.Step)})
+			layer := l.Index
+			add(Result{Rule: strings.ReplaceAll(n.Kind, "_", " "), Status: Warn, Message: n.Message, Detail: fmt.Sprintf("L%d %s", l.Index, l.Step), Fix: n.Fix, Layer: &layer})
 		}
 	}
 	return rep

@@ -8,15 +8,25 @@ muscles images diff ghcr.io/acme/app:1.8.0 ghcr.io/acme/app:1.9.0
 
 ![muscles images diff](assets/terminal/diff.png)
 
-## The header
+## The summary
 
-The first line is the target's uncompressed size and its change from the base, as bytes and a percentage, then the compressed size (what clients pull) and its change.
+The first line says what happened in one sentence:
+
+```text
+app:2 is 42 MB bigger than app:1 (+10.5%), mostly in RUN pip install -r requirements.txt (+40 MB). Biggest changes: + /usr/local/lib/python3.12/site-packages/torch/ (38 MB), ~ /app/main.py (+2 KB). Packages: installed torch 2.4.1 (pip); upgraded libssl3 3.0.14-1 → 3.0.15-1.
+```
+
+The next line is the target's uncompressed size and its change from the base, then the compressed size (what clients pull) and its change. `--json` has the sentence as `summary`.
 
 ## Layers
 
 Layers are lined up by position. From the bottom up, layers with the same digest are **shared** (`=`): a client that has the base already has them and won't pull them again. The first layer that differs, and every layer above it, is marked `≠` with its size in both images.
 
 Few shared layers usually means an early step changed: a new base image, or a `COPY` of the whole source tree before installing dependencies. Order Dockerfile steps from least to most often changed to keep more layers shared.
+
+## Packages
+
+When the images' package databases differ (dpkg, apk or pip), a table lists the packages installed (`+`), upgraded (`~`, old → new version) and removed (`-`). This is often the quickest answer to "why did it grow": a new dependency, or an upgrade that pulled others in.
 
 ## Filesystem
 

@@ -5,6 +5,7 @@ package index
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 
+	"github.com/rossedman/muscles/internal/pkgdb"
 	"github.com/rossedman/muscles/internal/source"
 )
 
@@ -56,6 +58,9 @@ type Layer struct {
 	Compressed int64  // compressed size, as the source reports it
 	Size       int64  // sum of the regular files' sizes
 	Entries    []Entry
+	// Packages are the package database files in this layer (dpkg, apk)
+	// and Python .dist-info metadata, keyed by path, as their packages.
+	Packages map[string][]pkgdb.Pkg
 }
 
 // Step is one build step from the image config's history.
@@ -154,12 +159,12 @@ func (ix Indexer) Index(ctx context.Context, img *source.Image) (*Image, error) 
 			if err != nil {
 				return nil, fmt.Errorf("layer %d: open: %w", i, err)
 			}
-			entries, size, err := ReadTar(ctx, rc)
+			entries, size, pkgs, err := ReadTar(ctx, rc)
 			_ = rc.Close()
 			if err != nil {
 				return nil, fmt.Errorf("layer %d (%s): %w", i, short(diffID.String()), err)
 			}
-			li.Entries, li.Size = entries, size
+			li.Entries, li.Size, li.Packages = entries, size, pkgs
 			if ix.Cache != nil {
 				// A cache that can't be written only costs speed.
 				_ = ix.Cache.Put(li)
@@ -200,22 +205,30 @@ func (c ctxReader) Read(p []byte) (int, error) {
 	return c.r.Read(p)
 }
 
-// ReadTar indexes an uncompressed layer tar. It returns the entries and the
-// total size of the regular files.
-func ReadTar(ctx context.Context, r io.Reader) ([]Entry, int64, error) {
+// ReadTar indexes an uncompressed layer tar. It returns the entries, the
+// total size of the regular files, and the packages declared by the package
+// databases in it (see pkgdb.IsDB), keyed by path.
+func ReadTar(ctx context.Context, r io.Reader) ([]Entry, int64, map[string][]pkgdb.Pkg, error) {
 	tr := tar.NewReader(ctxReader{ctx, r})
 	var (
 		entries []Entry
 		total   int64
 		buf     = make([]byte, 64<<10)
+		pkgs    map[string][]pkgdb.Pkg
 	)
+	addPkgs := func(p string, ps []pkgdb.Pkg) {
+		if pkgs == nil {
+			pkgs = map[string][]pkgdb.Pkg{}
+		}
+		pkgs[p] = ps
+	}
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
-			return entries, total, nil
+			return entries, total, pkgs, nil
 		}
 		if err != nil {
-			return nil, 0, fmt.Errorf("read tar: %w", err)
+			return nil, 0, nil, fmt.Errorf("read tar: %w", err)
 		}
 		p := Clean(h.Name)
 		if p == "/" {
@@ -239,11 +252,22 @@ func ReadTar(ctx context.Context, r io.Reader) ([]Entry, int64, error) {
 		case tar.TypeReg:
 			e.Type, e.Size = File, h.Size
 			d := xxhash.New()
-			if _, err := io.CopyBuffer(d, tr, buf); err != nil {
-				return nil, 0, fmt.Errorf("read %s: %w", p, err)
+			var src io.Reader = tr
+			var db *bytes.Buffer
+			if pkgdb.IsDB(p) && h.Size <= pkgdb.MaxDB {
+				db = &bytes.Buffer{}
+				src = io.TeeReader(tr, db)
+			}
+			if _, err := io.CopyBuffer(d, src, buf); err != nil {
+				return nil, 0, nil, fmt.Errorf("read %s: %w", p, err)
 			}
 			e.Hash = d.Sum64()
 			total += h.Size
+			if db != nil {
+				addPkgs(p, pkgdb.Parse(p, db.Bytes()))
+			} else if pkg, ok := pkgdb.FromPath(p); ok {
+				addPkgs(p, []pkgdb.Pkg{pkg})
+			}
 		case tar.TypeDir:
 			e.Type = Dir
 		case tar.TypeSymlink:

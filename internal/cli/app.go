@@ -14,9 +14,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -27,6 +29,7 @@ import (
 
 	"github.com/rossedman/muscles/internal/analysis"
 	"github.com/rossedman/muscles/internal/config"
+	"github.com/rossedman/muscles/internal/dockerfile"
 	"github.com/rossedman/muscles/internal/index"
 	"github.com/rossedman/muscles/internal/size"
 	"github.com/rossedman/muscles/internal/source"
@@ -103,6 +106,9 @@ type app struct {
 	status *status
 	hints  []string
 	cancel context.CancelFunc
+	// everyFix notes waste of any size, not only above the warn thresholds,
+	// so inspect can account for all of it.
+	everyFix bool
 }
 
 func newApp(opts Options, argv []string) *app {
@@ -253,6 +259,43 @@ func (a *app) hint(format string, args ...any) {
 	a.hints = append(a.hints, fmt.Sprintf(format, args...))
 }
 
+// next suggests the command to run next. Only a person at a terminal sees
+// it: in logs and pipelines it would be noise.
+func (a *app) next(command, why string) {
+	if !a.opts.Terminal(a.opts.Stderr) {
+		return
+	}
+	line := "Next: " + command
+	if why != "" {
+		line += "   (" + why + ")"
+	}
+	a.hints = append(a.hints, line)
+}
+
+// wrap word-wraps text for the terminal: the first line after first, the
+// rest after indent, both of which are already on the line. Lines stay
+// within 100 columns, so prose reads well on wide terminals too.
+func (a *app) wrap(text string, first, indent int) string {
+	width := ui.Width(a.opts.Stdout)
+	if width <= 0 || width > 100 {
+		width = 100
+	}
+	lines := strings.Split(ansi.Wordwrap(text, max(width-first, 20), ""), "\n")
+	if len(lines) > 1 {
+		rest := ansi.Wordwrap(strings.Join(lines[1:], " "), max(width-indent, 20), "")
+		lines = append(lines[:1], strings.Split(rest, "\n")...)
+	}
+	return strings.Join(lines, "\n"+strings.Repeat(" ", indent))
+}
+
+// shellQuote quotes s for a shell when it needs it, for commands we print.
+func shellQuote(s string) string {
+	if s != "" && !strings.ContainsAny(s, " \t'\"$`&|;<>()*?[]{}!#~\\") {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // interactive reports whether a person can answer a prompt.
 func (a *app) interactive() bool {
 	return a.opts.Terminal(a.opts.Stdin) && a.opts.Terminal(a.opts.Stderr)
@@ -330,7 +373,64 @@ func (a *app) analyze(ctx context.Context, ref string) (*analysis.Report, error)
 		return nil, fmt.Errorf("index %s: %w", ref, err)
 	}
 	opts, _ := a.cfg.Analysis()
+	if a.everyFix {
+		opts.PermissionRewrite, opts.Overwrite = 1, 1
+	}
 	return analysis.Analyze(ii, opts), nil
+}
+
+// analyzeBuilt analyzes the image being explained (not a baseline) and,
+// with a Dockerfile configured, points each layer at its line.
+func (a *app) analyzeBuilt(ctx context.Context, ref string) (*analysis.Report, error) {
+	r, err := a.analyze(ctx, ref)
+	if err != nil || a.cfg.Dockerfile == "" {
+		return r, err
+	}
+	f, err := os.Open(a.cfg.Dockerfile)
+	if err != nil {
+		return nil, &exitError{code: ExitUsage, kind: "USAGE", err: fmt.Errorf("read Dockerfile: %w", err), run: "muscles " + strings.Join(a.argv, " ") + " --dockerfile PATH"}
+	}
+	defer func() { _ = f.Close() }()
+	ins, err := dockerfile.Parse(f)
+	if err != nil {
+		return nil, fmt.Errorf("read Dockerfile %s: %w", a.cfg.Dockerfile, err)
+	}
+	steps := make([]string, len(r.Layers))
+	for i, l := range r.Layers {
+		steps[i] = l.Step
+	}
+	matched := 0
+	for i, line := range dockerfile.Lines(steps, ins) {
+		r.Layers[i].Line = line
+		if line > 0 {
+			matched++
+		}
+	}
+	a.debugf("matched %d of %d layers to lines in %s", matched, len(r.Layers), a.cfg.Dockerfile)
+	return r, nil
+}
+
+// stepWithLine is a layer's step, with its Dockerfile line when known.
+func (a *app) stepWithLine(l analysis.Layer) string {
+	step := l.Step
+	if step == "" {
+		step = "?"
+	}
+	return step + a.lineRef(l.Line)
+}
+
+// lineRef is " (Dockerfile:12)", or "" when the line is unknown.
+func (a *app) lineRef(line int) string {
+	if line <= 0 {
+		return ""
+	}
+	return fmt.Sprintf(" (%s:%d)", filepath.Base(a.cfg.Dockerfile), line)
+}
+
+// stepCell shows prefix and a layer's step in a table, keeping the
+// Dockerfile line when the step is cut short.
+func (a *app) stepCell(prefix string, l analysis.Layer) ui.Cell {
+	return ui.Cell{Text: prefix + a.stepWithLine(l), Tail: len(a.lineRef(l.Line))}
 }
 
 func shortDigest(d string) string {

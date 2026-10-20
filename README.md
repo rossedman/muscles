@@ -48,6 +48,7 @@ It's a single static binary. Docker is optional.
 ## Quick start
 
 ```sh
+muscles python:3.12-slim                            # what to fix first, and what it saves
 muscles layers list python:3.12-slim                # what each layer did
 muscles changes list python:3.12-slim --layer 2     # the files one layer changed
 muscles waste list python:3.12-slim                 # bytes stored but never seen
@@ -56,24 +57,25 @@ muscles images check app.tar --baseline ghcr.io/acme/app:main
 ```
 
 <p align="center">
-  <img src="docs/assets/terminal/waste.png" alt="muscles waste list: wasted bytes, biggest first, with the reason and the layers that stored and hid them." width="100%">
+  <img src="docs/assets/terminal/inspect.png" alt="muscles IMAGE: the image's size and waste, then the fixes that save the most, each with its layer, Dockerfile line, problem and the change to make." width="100%">
 </p>
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `muscles layers list IMAGE` | Each layer: size, `+ ~ ◌ -` counts, Dockerfile step, note |
+| `muscles IMAGE` | Short for `muscles images inspect IMAGE`: size, waste, and the fixes ranked by what they save |
+| `muscles layers list IMAGE` | Each layer: size, `+ ~ ◌ -` counts, Dockerfile step, the packages it installed or a warning |
 | `muscles changes list IMAGE` | The paths layers changed: `--layer`, `--type`, `--path`, `--min-size`, `--files` |
 | `muscles waste list IMAGE` | Hidden bytes, biggest first, with the layers that stored and hid them |
-| `muscles images diff BASE TARGET` | Shared layers, per-layer size changes, and the filesystem diff |
-| `muscles images check IMAGE` | Budgets and forbidden paths; `--baseline` for growth; exits 5 on failure |
+| `muscles images diff BASE TARGET` | One-sentence verdict, shared layers, package changes, and the filesystem diff |
+| `muscles images check IMAGE` | Budgets and forbidden paths, each with how to fix it; `--baseline` for growth; exits 5 on failure |
 | `muscles config list` | Every setting, its value and where it came from |
 | `muscles cache list` / `cache delete` | The layer index cache (`--preview` to look first) |
 | `muscles help [COMMAND] [--json]` | Full help, or the command tree as JSON |
 | `muscles version [--json]` | Version, commit and platform |
 
-Every command takes `-o table|plain|json|markdown` (or `--json`). See the [CLI reference](https://rossedman.io/muscles/cli/).
+Every command takes `-o table|plain|json|markdown` (or `--json`), and `--dockerfile Dockerfile` to point layers and fixes at their lines. `muscles layers IMAGE` is short for `muscles layers list IMAGE` (and the same for `changes` and `waste`). See the [CLI reference](https://rossedman.io/muscles/cli/).
 
 `IMAGE` is a daemon tag (`app:dev`), a registry reference (`ghcr.io/acme/app:main`), a tarball (`app.tar`) or an OCI layout (`./out`, `oci://./out:tag`).
 

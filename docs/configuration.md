@@ -38,6 +38,7 @@ Error: unknown setting "check.max_sise" in .muscles.yaml (did you mean "check.ma
 |---|---|---|
 | `source` | `auto` | Where images come from: `auto`, `docker`, `remote`, `tar`, `oci`. |
 | `platform` | | Platform of multi-platform images, like `linux/arm64`. Default: Linux on this machine's architecture. |
+| `dockerfile` | | The Dockerfile the image was built from, so layers, fixes and checks name their line. Relative to the working directory. Flag `--dockerfile`. |
 | `output.units` | `si` | `si` (MB, powers of 1000) or `iec` (MiB, powers of 1024). |
 | `cache.dir` | `$XDG_CACHE_HOME/muscles` | Layer index cache. |
 | `cache.max_size` | `2GB` | Cache cap; least recently used layers go first. |
@@ -50,13 +51,17 @@ Error: unknown setting "check.max_sise" in .muscles.yaml (did you mean "check.ma
 | `check.allow` | `[]` | Exceptions to `check.forbid`. |
 | `warn.large_file` | `50MB` | Note single files at least this big; `0` turns it off. |
 | `warn.permission_rewrite` | `1MB` | Note permission-only rewrites at least this big; `0` turns it off. |
+| `warn.overwrite` | `10MB` | Note a layer that replaces at least this much of earlier layers' files; `0` turns it off. |
 | `warn.package_cache` | `true` | Note package manager caches left in a layer. |
+
+The `warn.*` thresholds decide what `layers list` and `images check` warn about. `images inspect` ignores them and accounts for every wasted byte.
 
 ## Example
 
 ```yaml
 # .muscles.yaml, committed next to the Dockerfile
 platform: linux/amd64
+dockerfile: Dockerfile
 
 check:
   max_size: 800MB

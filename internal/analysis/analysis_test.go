@@ -284,7 +284,7 @@ func TestMostlyAndNotes(t *testing.T) {
 		t.Fatalf("summary: %q", s)
 	}
 	// A deletion with no previous layer still notes the bytes.
-	n := notes([]Change{{Path: "/x", Type: Deleted, Size: 5, PrevLayer: -1}}, Options{})
+	n := notes([]Change{{Path: "/x", Type: Deleted, Size: 5, PrevLayer: -1}}, "", Options{})
 	if len(n) != 1 || !strings.Contains(n[0].Message, "an earlier layer") {
 		t.Fatalf("notes: %+v", n)
 	}
@@ -293,5 +293,96 @@ func TestMostlyAndNotes(t *testing.T) {
 	}
 	if DefaultOptions().LargeFile != 50_000_000 {
 		t.Fatal("defaults")
+	}
+}
+
+func TestFixesInNotes(t *testing.T) {
+	o := testOptions()
+	o.Overwrite = 10_000
+	r := Analyze(indexed(t, testimg.App(100)), o)
+	byKind := map[string]Note{}
+	for _, l := range r.Layers {
+		for _, n := range l.Notes {
+			byKind[n.Kind] = n
+		}
+	}
+	if n := byKind[NoteOverwrite]; n.Message != "replaces 20 KB that L0 still stores" || n.Files != 1 || len(n.StoredIn) != 1 || n.StoredIn[0] != 0 || n.Fix == "" {
+		t.Errorf("overwrite: %+v", n)
+	}
+	if n := byKind[NotePackageCache]; n.Files != 2 || !strings.Contains(n.Fix, "rm -rf /var/lib/apt/lists/*") {
+		t.Errorf("package cache: %+v", n)
+	}
+	if n := byKind[NotePermissionRewrite]; n.Files != 3 || n.StoredIn[0] != 4 || !strings.Contains(n.Fix, "COPY --chown") {
+		t.Errorf("rewrite: %+v", n)
+	}
+	if n := byKind[NoteHiddenDelete]; !strings.Contains(n.Fix, "(L1)") {
+		t.Errorf("hidden delete: %+v", n)
+	}
+	if n := byKind[NoteLargeFile]; n.Fix == "" || n.Files != 1 {
+		t.Errorf("large file: %+v", n)
+	}
+
+	if !strings.Contains(rewriteFix("RUN chmod -R 755 /app"), "--chmod") || !strings.Contains(rewriteFix("RUN setcap x"), "in the step that creates") {
+		t.Error("rewriteFix")
+	}
+	if label, fix, ok := CacheFix("/var/cache/apk"); !ok || label != "apk cache" || !strings.Contains(fix, "--no-cache") {
+		t.Errorf("CacheFix: %q %q %v", label, fix, ok)
+	}
+	if _, _, ok := CacheFix("/srv"); ok {
+		t.Error("CacheFix matched /srv")
+	}
+	for in, want := range map[string][]int{"an earlier layer": nil, "L2": {2}, "L1 and L3": {1, 3}, "L0, L1 and L3": {0, 1, 3}} {
+		if got := LayerNames(want); got != in {
+			t.Errorf("LayerNames(%v) = %q", want, got)
+		}
+	}
+}
+
+func TestPackages(t *testing.T) {
+	status := func(pkgs ...string) testimg.File {
+		var b strings.Builder
+		for i := 0; i < len(pkgs); i += 2 {
+			b.WriteString("Package: " + pkgs[i] + "\nStatus: install ok installed\nVersion: " + pkgs[i+1] + "\n\n")
+		}
+		return testimg.File{Path: "var/lib/dpkg/status", Body: b.String()}
+	}
+	img := testimg.Build(
+		testimg.Layer("FROM debian", status("bash", "5.2", "libc6", "2.36-9")),
+		testimg.Layer("RUN apt-get install curl", status("bash", "5.2", "curl", "7.88", "libc6", "2.36-9+u3")),
+		testimg.Layer("RUN pip install pandas",
+			testimg.File{Path: "usr/lib/python3/site-packages/pandas-2.2.3.dist-info/METADATA", Body: "x"},
+			testimg.File{Path: "usr/lib/python3/site-packages/numpy-2.1.0.dist-info/METADATA", Body: "x"},
+		),
+		testimg.Layer("RUN pip uninstall numpy", testimg.Whiteout("usr/lib/python3/site-packages/numpy-2.1.0.dist-info")),
+		testimg.Layer("RUN rm dpkg", testimg.Dir("var/lib/dpkg"), testimg.Opaque("var/lib/dpkg")),
+		testimg.Layer("COPY app", testimg.File{Path: "app/main", Body: "m"}),
+	)
+	r := Analyze(indexed(t, img), Options{})
+	want := []string{
+		"installed bash 5.2 and libc6 2.36-9 (dpkg)",
+		"installed curl 7.88 (dpkg); upgraded libc6 2.36-9 → 2.36-9+u3",
+		"installed numpy 2.1.0 and pandas 2.2.3 (pip)",
+		"removed numpy 2.1.0 (pip)",
+		"removed bash 5.2, curl 7.88 and libc6 2.36-9+u3 (dpkg)",
+		"mostly /app (1 B)",
+	}
+	for i, w := range want {
+		if got := r.Layers[i].Summary; got != w {
+			t.Errorf("L%d summary = %q, want %q", i, got, w)
+		}
+	}
+	if r.Layers[5].Packages != nil || r.Layers[1].Packages == nil || len(r.Layers[1].Packages.Upgraded) != 1 {
+		t.Errorf("packages: %+v %+v", r.Layers[5].Packages, r.Layers[1].Packages)
+	}
+	if len(r.Packages) != 1 || r.Packages["pip/pandas"].Version != "2.2.3" {
+		t.Errorf("final packages: %+v", r.Packages)
+	}
+	// A database replaced by a file that declares nothing drops its packages.
+	img = testimg.Build(
+		testimg.Layer("FROM", status("bash", "5.2")),
+		testimg.Layer("RUN truncate", testimg.File{Path: "var/lib/dpkg/status", Size: pkgdbMax()}),
+	)
+	if r := Analyze(indexed(t, img), Options{}); len(r.Packages) != 0 || r.Layers[1].Summary != "removed bash 5.2 (dpkg)" {
+		t.Errorf("replaced: %+v %q", r.Packages, r.Layers[1].Summary)
 	}
 }

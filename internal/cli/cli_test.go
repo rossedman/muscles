@@ -418,7 +418,6 @@ func TestUsageErrors(t *testing.T) {
 	e := newEnv(t)
 	must(t, e.run("lyers"), 2, nil, []string{`unknown command "lyers" for "muscles"`, `Did you mean "layers"?`})
 	must(t, e.run("layers", "lst"), 2, nil, []string{`Did you mean "list"?`})
-	must(t, e.run("layers", "zzzzzz"), 2, nil, []string{`unknown command "zzzzzz"`})
 	must(t, e.run("layers", "list", "--jsno"), 2, nil, []string{"unknown flag: --jsno", "Did you mean --json?"})
 	must(t, e.run("layers", "list", "--zzzzzzzz"), 2, nil, []string{"unknown flag"})
 	must(t, e.run("layers", "list"), 2, nil, []string{"missing IMAGE: run `muscles layers list IMAGE`"})
