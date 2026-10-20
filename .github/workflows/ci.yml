@@ -32,6 +32,10 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      # Download modules first, with retries: if a download from the module
+      # proxy is cut off, golangci-lint reports it as a typecheck error.
+      - name: download modules
+        run: for i in 1 2 3; do go mod download && exit 0; sleep $((i * 5)); done; exit 1
       - uses: golangci/golangci-lint-action@v9
         with:
           version: latest
