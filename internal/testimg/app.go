@@ -61,7 +61,10 @@ func App(unit int64) v1.Image { return Build(AppSteps(unit)...) }
 // AppNext is the next release of App: pandas grew, numpy is gone, a module
 // was added and main.py changed; the base, apt and WORKDIR layers are the
 // same.
-func AppNext(unit int64) v1.Image {
+func AppNext(unit int64) v1.Image { return Build(AppNextSteps(unit)...) }
+
+// AppNextSteps are AppNext's steps.
+func AppNextSteps(unit int64) []Step {
 	steps := AppSteps(unit)
 	steps[4] = Layer("RUN /bin/sh -c pip install -r requirements.txt && rm -rf /var/lib/apt/lists/*",
 		File{Path: "usr/local/lib/python3.12/site-packages/pandas/core.py", Body: body('5', 420*unit)},
@@ -80,5 +83,5 @@ func AppNext(unit int64) v1.Image {
 		File{Path: "app/api/retry.py", Body: body('r', 4*unit), UID: 1000, GID: 1000},
 		File{Path: "app/models/base.onnx", Body: body('x', 600*unit), UID: 1000, GID: 1000},
 	)
-	return Build(steps...)
+	return steps
 }

@@ -74,3 +74,31 @@ func TestUnevenAndFilesystems(t *testing.T) {
 		t.Fatalf("filesystems: %v", got)
 	}
 }
+
+func TestVerdict(t *testing.T) {
+	a, b := analyze(t, "app:1", testimg.App(100)), analyze(t, "app:2", testimg.AppNext(100))
+	got := Images(a, b).Verdict(false)
+	want := "app:2 is 12 KB smaller than app:1 (-4.8%), mostly in RUN pip install -r requirements.txt && rm -rf /var/lib/apt/lists/* (-13 KB). Biggest changes: - /usr/local/lib/python3.12/site-packages/numpy/core.so (25 KB), ~ /usr/local/lib/python3.12/site-packages/pandas/core.py (+12 KB)."
+	if got != want {
+		t.Errorf("verdict:\n%s\nwant\n%s", got, want)
+	}
+	if got := Images(b, a).Verdict(false); !strings.HasPrefix(got, "app:1 is 12 KB bigger than app:2 (+5.0%)") {
+		t.Errorf("bigger: %s", got)
+	}
+	if got := Images(a, a).Verdict(false); got != "app:1 is the same size as app:1." {
+		t.Errorf("same: %s", got)
+	}
+	if _, _, ok := Images(a, a).BiggestLayerChange(); ok {
+		t.Error("identical images have a changed layer")
+	}
+
+	status := func(pkgs string) testimg.File {
+		return testimg.File{Path: "var/lib/dpkg/status", Body: "Package: " + pkgs + "\nStatus: install ok installed\nVersion: 1\n"}
+	}
+	p1 := analyze(t, "p:1", testimg.Build(testimg.Layer("FROM", status("curl"))))
+	p2 := analyze(t, "p:2", testimg.Build(testimg.Layer("FROM", status("wget"))))
+	r := Images(p1, p2)
+	if !strings.Contains(r.Verdict(false), "Packages: installed wget 1 (dpkg); removed curl 1 (dpkg).") || len(r.Packages.Installed) != 1 {
+		t.Errorf("packages: %s", r.Verdict(false))
+	}
+}

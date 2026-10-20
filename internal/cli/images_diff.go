@@ -7,6 +7,7 @@ import (
 
 	"github.com/rossedman/muscles/internal/analysis"
 	"github.com/rossedman/muscles/internal/compare"
+	"github.com/rossedman/muscles/internal/pkgdb"
 	"github.com/rossedman/muscles/internal/ui"
 )
 
@@ -27,6 +28,8 @@ type diffJSON struct {
 	SharedLayers    int             `json:"shared_layers"`
 	Layers          []diffLayerJSON `json:"layers"`
 	Changes         []analysis.Row  `json:"changes"`
+	Summary         string          `json:"summary"`
+	Packages        pkgdb.Diff      `json:"packages"`
 }
 
 func newImagesDiffCmd(a *app) *cobra.Command {
@@ -37,13 +40,15 @@ func newImagesDiffCmd(a *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff BASE TARGET",
 		Short: "Show what changed from one image to another",
-		Long: `Show what changed from BASE to TARGET: the size change, the layers they
-share (identical from the bottom up, so pulls reuse them), the size of each
+		Long: `Show what changed from BASE to TARGET, starting with one sentence: the
+size change, the step it came from, the biggest file changes and the
+packages installed, upgraded or removed. Then the layers they share (identical from the bottom up, so pulls reuse them), the size of each
 layer that differs, and the paths that differ in the final filesystems.
 
 Directories whose changes are all alike are rolled up so the list fits
 about --limit rows; --files lists every file. Plain output has one line per
-filesystem change: type, size, path, count, note.` + "\n" + imageHelp,
+filesystem change: type, size, path, count, note. With --dockerfile,
+TARGET's layers show their Dockerfile lines.` + "\n" + imageHelp,
 		Example: `  muscles images diff ghcr.io/acme/app:1.8.0 app:dev
   muscles images diff ghcr.io/acme/app:main app.tar -o markdown >> "$GITHUB_STEP_SUMMARY"
   muscles images diff app:1 app:2 --json | jq '.size_delta'`,
@@ -57,14 +62,18 @@ filesystem change: type, size, path, count, note.` + "\n" + imageHelp,
 			if err != nil {
 				return err
 			}
-			target, err := a.analyze(cmd.Context(), args[1])
+			target, err := a.analyzeBuilt(cmd.Context(), args[1])
 			if err != nil {
 				return err
 			}
 			if files {
 				limit = 0
 			}
-			return a.printDiff(compare.Images(base, target), limit)
+			r := compare.Images(base, target)
+			if p, _, ok := r.BiggestLayerChange(); ok && p.Target != nil {
+				a.next(fmt.Sprintf("muscles changes list %s --layer %d", shellQuote(args[1]), p.Index), "what changed in that layer")
+			}
+			return a.printDiff(r, limit)
 		},
 	}
 	cmd.Flags().BoolVar(&files, "files", false, "list every file; don't roll up directories")
@@ -76,7 +85,8 @@ func (a *app) printDiff(r *compare.Result, limit int) error {
 	rows := analysis.RollupChanges(r.Changes, limit)
 	f, _ := a.format()
 	if f == formatJSON {
-		out := diffJSON{Schema: Schema, Base: infoOf(r.Base), Target: infoOf(r.Target), SizeDelta: r.SizeDelta(), CompressedDelta: r.CompressedDelta(), SharedLayers: r.Shared, Layers: []diffLayerJSON{}, Changes: nonNil(rows)}
+		out := diffJSON{Schema: Schema, Base: infoOf(r.Base), Target: infoOf(r.Target), SizeDelta: r.SizeDelta(), CompressedDelta: r.CompressedDelta(), SharedLayers: r.Shared, Layers: []diffLayerJSON{}, Changes: nonNil(rows), Summary: r.Verdict(a.cfg.IEC()),
+			Packages: pkgdb.Diff{Installed: nonNil(r.Packages.Installed), Removed: nonNil(r.Packages.Removed), Upgraded: nonNil(r.Packages.Upgraded)}}
 		for _, p := range r.Layers {
 			l := diffLayerJSON{Index: p.Index, Shared: p.Shared, Step: p.Step()}
 			if p.Base != nil {
@@ -133,15 +143,27 @@ func (a *app) printDiff(r *compare.Result, limit int) error {
 		default:
 			sz, change = a.size(p.Base.Size)+" → "+a.size(p.Target.Size), a.delta(p.Target.Size-p.Base.Size)
 		}
-		layers.Add(ui.Cell{Text: mark, Paint: paint}, ui.C(fmt.Sprint(p.Index)), ui.C(p.Step()), ui.C(sz), ui.Cell{Text: change, Paint: paint})
+		step := ui.C(p.Step())
+		if p.Target != nil {
+			step = a.stepCell("", *p.Target)
+		}
+		layers.Add(ui.Cell{Text: mark, Paint: paint}, ui.C(fmt.Sprint(p.Index)), step, ui.C(sz), ui.Cell{Text: change, Paint: paint})
 	}
+	pkgs := a.packagesTable(r.Packages)
+	verdict := r.Verdict(a.cfg.IEC())
 
 	var err error
 	if f == formatMarkdown {
-		fmt.Fprintf(a.out, "### %s → %s\n\n%s\n\n", r.Base.Ref, r.Target.Ref, sizes)
+		fmt.Fprintf(a.out, "### %s → %s\n\n%s\n\n%s\n\n", r.Base.Ref, r.Target.Ref, verdict, sizes)
 		fmt.Fprintf(a.out, "**Layers** (%d of %d shared)\n\n", r.Shared, len(r.Layers))
 		if err = layers.Markdown(a.out); err != nil {
 			return err
+		}
+		if pkgs != nil {
+			fmt.Fprintf(a.out, "\n**Packages** (%d changes)\n\n", len(pkgs.Rows))
+			if err = pkgs.Markdown(a.out); err != nil {
+				return err
+			}
 		}
 		fmt.Fprintf(a.out, "\n**Filesystem** (%d changes)\n\n", len(r.Changes))
 		if len(rows) == 0 {
@@ -154,10 +176,16 @@ func (a *app) printDiff(r *compare.Result, limit int) error {
 		}
 		return fs.Markdown(a.out)
 	}
-	fmt.Fprintf(a.out, "%s   %s\n\n", a.th.Paint(a.th.Bold, r.Base.Ref+" → "+r.Target.Ref), sizes)
+	fmt.Fprintf(a.out, "%s\n%s\n\n", a.th.Paint(a.th.Bold, verdict), a.th.Paint(a.th.Muted, r.Base.Ref+" → "+r.Target.Ref+"   "+sizes))
 	fmt.Fprintf(a.out, "%s\n", a.th.Paint(a.th.Head, fmt.Sprintf("LAYERS (%d of %d shared)", r.Shared, len(r.Layers))))
 	if err = layers.Render(a.out, a.th); err != nil {
 		return err
+	}
+	if pkgs != nil {
+		fmt.Fprintf(a.out, "\n%s\n", a.th.Paint(a.th.Head, fmt.Sprintf("PACKAGES (%d changes)", len(pkgs.Rows))))
+		if err = pkgs.Render(a.out, a.th); err != nil {
+			return err
+		}
 	}
 	fmt.Fprintf(a.out, "\n%s\n", a.th.Paint(a.th.Head, fmt.Sprintf("FILESYSTEM (%d changes)", len(r.Changes))))
 	if len(rows) == 0 {
@@ -165,6 +193,24 @@ func (a *app) printDiff(r *compare.Result, limit int) error {
 		return err
 	}
 	return fs.Render(a.out, a.th)
+}
+
+// packagesTable lists package changes, or is nil when there are none.
+func (a *app) packagesTable(d pkgdb.Diff) *ui.Table {
+	if d.Empty() {
+		return nil
+	}
+	t := &ui.Table{Columns: []ui.Column{{Title: "TYPE"}, {Title: "PACKAGE"}, {Title: "VERSION"}, {Title: "MANAGER"}}}
+	for _, p := range d.Installed {
+		t.Add(a.changeCell(analysis.Added), ui.C(p.Name), ui.C(p.Version), ui.Cell{Text: p.Manager, Paint: a.th.Painter(a.th.Muted)})
+	}
+	for _, u := range d.Upgraded {
+		t.Add(a.changeCell(analysis.Modified), ui.C(u.Name), ui.C(u.From+" → "+u.To), ui.Cell{Text: u.Manager, Paint: a.th.Painter(a.th.Muted)})
+	}
+	for _, p := range d.Removed {
+		t.Add(a.changeCell(analysis.Deleted), ui.Cell{Text: p.Name, Paint: a.th.Painter(a.th.Muted)}, ui.C(p.Version), ui.Cell{Text: p.Manager, Paint: a.th.Painter(a.th.Muted)})
+	}
+	return t
 }
 
 func (a *app) diffNote(row analysis.Row) string {

@@ -39,7 +39,7 @@ func Run(ctx context.Context, argv []string, opts Options) (code int) {
 		}
 	}()
 	root := newRootCmd(a)
-	root.SetArgs(argv)
+	root.SetArgs(expandShortcuts(root, argv))
 	err := root.ExecuteContext(ctx)
 	if a.cancel != nil {
 		a.cancel()
@@ -47,16 +47,103 @@ func Run(ctx context.Context, argv []string, opts Options) (code int) {
 	if err == nil && ctx.Err() != nil {
 		err = ctx.Err()
 	}
+	code = ExitOK
 	if err != nil {
-		return a.printError(err)
+		code = a.printError(err)
 	}
 	a.status.clear()
-	if !a.quiet() {
+	// Hints follow success, and a failed check, where the next step matters most.
+	if !a.quiet() && (code == ExitOK || code == ExitCheckFailed) {
 		for _, h := range a.hints {
 			fmt.Fprintln(a.errw, a.eth.Paint(a.eth.Muted, h))
 		}
 	}
-	return ExitOK
+	return code
+}
+
+// shortcuts are the noun commands that run their list verb when given an
+// image: `muscles layers app:dev` is `muscles layers list app:dev`.
+var shortcuts = map[string]bool{"layers": true, "changes": true, "waste": true}
+
+// expandShortcuts rewrites the two shortcuts into the full commands before
+// parsing: an image where a command belongs runs `images inspect`, and an
+// image after layers, changes or waste runs that noun's list. A word close
+// to a command name is left alone, so typos still get a suggestion.
+func expandShortcuts(root *cobra.Command, argv []string) []string {
+	i := positional(root, root.PersistentFlags(), argv, 0)
+	if i < 0 {
+		return argv
+	}
+	word := argv[i]
+	if cmd, _, err := root.Find([]string{word}); err == nil && cmd != root {
+		if !shortcuts[cmd.Name()] {
+			return argv
+		}
+		list, _, _ := cmd.Find([]string{"list"})
+		j := positional(cmd, list.Flags(), argv, i+1)
+		if j < 0 || isCommandish(cmd, argv[j]) {
+			return argv
+		}
+		return insert(argv, i+1, "list")
+	}
+	if isCommandish(root, word) || strings.HasPrefix(word, "__") {
+		return argv
+	}
+	return insert(argv, i, "images", "inspect")
+}
+
+// isCommandish reports whether word names, or nearly names, a subcommand.
+func isCommandish(cmd *cobra.Command, word string) bool {
+	for _, c := range cmd.Commands() {
+		if c.Name() == word || c.HasAlias(word) {
+			return true
+		}
+	}
+	return word == "help" || len(cmd.SuggestionsFor(word)) > 0
+}
+
+// positional returns the index of the first argument from start that isn't
+// a flag or a flag's value, or -1. "--" ends the search.
+func positional(cmd *cobra.Command, fs *pflag.FlagSet, argv []string, start int) int {
+	for i := start; i < len(argv); i++ {
+		arg := argv[i]
+		switch {
+		case arg == "--":
+			return -1
+		case strings.HasPrefix(arg, "--"):
+			name, _, hasValue := strings.Cut(arg[2:], "=")
+			if f := lookupFlag(cmd, fs, name, ""); f != nil && !hasValue && f.NoOptDefVal == "" {
+				i++ // the flag's value
+			}
+		case strings.HasPrefix(arg, "-") && len(arg) > 1:
+			short := arg[len(arg)-1:]
+			if f := lookupFlag(cmd, fs, "", short); f != nil && len(arg) == 2 && f.NoOptDefVal == "" {
+				i++
+			}
+		default:
+			return i
+		}
+	}
+	return -1
+}
+
+func lookupFlag(cmd *cobra.Command, fs *pflag.FlagSet, name, short string) *pflag.Flag {
+	for _, set := range []*pflag.FlagSet{fs, cmd.Root().PersistentFlags()} {
+		if name != "" {
+			if f := set.Lookup(name); f != nil {
+				return f
+			}
+		} else if f := set.ShorthandLookup(short); f != nil {
+			return f
+		}
+	}
+	return nil
+}
+
+func insert(argv []string, at int, words ...string) []string {
+	out := append([]string{}, argv[:at]...)
+	out = append(out, words...)
+	return append(out, argv[at:]...)
 }
 
 const rootLong = `muscles explains container images: what each layer added, changed and
@@ -124,6 +211,8 @@ func newRootCmd(a *app) *cobra.Command {
 	bindFlag(pf, "source", "source")
 	pf.String("platform", "", "platform of a multi-platform image, like linux/arm64 (default: linux on this machine's architecture)")
 	bindFlag(pf, "platform", "platform")
+	pf.String("dockerfile", "", "Dockerfile the image was built from, to point layers at its lines (config key dockerfile)")
+	bindFlag(pf, "dockerfile", "dockerfile")
 	pf.String("cache-dir", "", "layer index cache (default $XDG_CACHE_HOME/muscles)")
 	bindFlag(pf, "cache-dir", "cache.dir")
 	pf.BoolVar(&a.g.fresh, "fresh", false, "index every layer again instead of using the cache")

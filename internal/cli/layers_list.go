@@ -43,8 +43,9 @@ its bytes went, or a warning worth acting on (a package cache left behind,
 a deletion that frees nothing, a permission-only rewrite, a large file).
 
 Steps that make no layer (ENV, LABEL, CMD, ...) are shown dimmed between
-layers. Plain output has one line per layer:
-index, size, compressed, added, modified, meta, deleted, step, note.` + "\n" + imageHelp,
+layers. With --dockerfile, each step shows its Dockerfile line. Plain
+output has one line per layer: index, size, compressed, added, modified,
+meta, deleted, step, note, dockerfile line (0 if unknown), fix.` + "\n" + imageHelp,
 		Example: `  muscles layers list app:dev
   muscles layers list ghcr.io/acme/app:main -o markdown >> "$GITHUB_STEP_SUMMARY"
   muscles layers list app.tar --json | jq '.image.waste'`,
@@ -54,10 +55,11 @@ index, size, compressed, added, modified, meta, deleted, step, note.` + "\n" + i
 			if err != nil {
 				return err
 			}
-			r, err := a.analyze(cmd.Context(), args[0])
+			r, err := a.analyzeBuilt(cmd.Context(), args[0])
 			if err != nil {
 				return err
 			}
+			a.layersNext(r, args[0])
 			return a.printLayers(r)
 		},
 	}
@@ -106,18 +108,20 @@ func (a *app) printLayers(r *analysis.Report) error {
 			}
 			note = ui.Cell{Text: text, Plain: l.Notes[0].Message, Paint: a.th.Painter(a.th.Warn)}
 		}
-		step := l.Step
-		if step == "" {
-			step = "?"
-		}
 		cells := []ui.Cell{
 			ui.C(fmt.Sprint(l.Index)), a.sizeCell(l.Size),
 			count(l.Counts.Added, a.th.Painter(a.th.Added)), count(l.Counts.Modified, a.th.Painter(a.th.Modified)),
 			count(l.Counts.Meta, a.th.Painter(a.th.Meta)), count(l.Counts.Deleted, a.th.Painter(a.th.Deleted)),
-			ui.C(step), note,
+			a.stepCell("", l), note,
 		}
 		if f == formatPlain {
 			cells = append(cells[:2], append([]ui.Cell{ui.C(fmt.Sprint(l.Compressed))}, cells[2:]...)...)
+			cells[7] = ui.C(l.Step)
+			fix := ""
+			if len(l.Notes) > 0 {
+				fix = l.Notes[0].Fix
+			}
+			cells = append(cells, ui.C(fmt.Sprint(l.Line)), ui.C(fix))
 		}
 		t.Add(cells...)
 	}
@@ -139,6 +143,20 @@ func (a *app) printLayers(r *analysis.Report) error {
 	}
 	_, err := fmt.Fprintf(a.out, "\n%s\n", a.th.Paint(a.th.Bold, total))
 	return err
+}
+
+// layersNext suggests inspect when there is something to fix, and the
+// biggest layer's changes otherwise.
+func (a *app) layersNext(r *analysis.Report, ref string) {
+	for _, l := range r.Layers {
+		if len(l.Notes) > 0 {
+			a.next("muscles images inspect "+shellQuote(ref), "what to fix first")
+			return
+		}
+	}
+	if big := biggest(r, 1); len(big) > 0 {
+		a.next(fmt.Sprintf("muscles changes list %s --layer %d", shellQuote(ref), big[0].Index), "what the biggest layer added")
+	}
 }
 
 // nonNil returns an empty slice for nil, so JSON says [] rather than null.

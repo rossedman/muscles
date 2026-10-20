@@ -31,12 +31,12 @@ func TestReadTar(t *testing.T) {
 		testimg.Opaque("var/cache"),
 		testimg.File{Path: "var/.wh..wh.plnk"},
 	)
-	entries, size, err := ReadTar(context.Background(), bytes.NewReader(b))
+	entries, size, pkgs, err := ReadTar(context.Background(), bytes.NewReader(b))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if size != 4 {
-		t.Fatalf("size %d", size)
+	if size != 4 || pkgs != nil {
+		t.Fatalf("size %d, packages %v", size, pkgs)
 	}
 	want := []Entry{
 		{Path: "/usr", Type: Dir, Mode: 0o755},
@@ -62,16 +62,16 @@ func TestReadTar(t *testing.T) {
 		t.Error("Type.String")
 	}
 
-	if _, _, err := ReadTar(context.Background(), strings.NewReader("garbage that is not a tar header, long enough to be read as one block................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................")); err == nil {
+	if _, _, _, err := ReadTar(context.Background(), strings.NewReader("garbage that is not a tar header, long enough to be read as one block................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................")); err == nil {
 		t.Error("garbage accepted")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, _, err := ReadTar(ctx, bytes.NewReader(b)); !errors.Is(err, context.Canceled) {
+	if _, _, _, err := ReadTar(ctx, bytes.NewReader(b)); !errors.Is(err, context.Canceled) {
 		t.Errorf("canceled: %v", err)
 	}
 	// A truncated body fails while hashing.
-	if _, _, err := ReadTar(context.Background(), bytes.NewReader(b[:1536+2])); err == nil {
+	if _, _, _, err := ReadTar(context.Background(), bytes.NewReader(b[:1536+2])); err == nil {
 		t.Error("truncated tar accepted")
 	}
 }
@@ -267,5 +267,20 @@ func TestIndexErrors(t *testing.T) {
 	}
 	if short("sha256:0123456789abcdef") != "0123456789ab" || short("sha256:ab") != "ab" {
 		t.Error("short")
+	}
+}
+
+func TestReadTarPackages(t *testing.T) {
+	b := testimg.TarBytes(
+		testimg.File{Path: "var/lib/dpkg/status", Body: "Package: curl\nStatus: install ok installed\nVersion: 7.88\n"},
+		testimg.File{Path: "var/lib/dpkg/status.d/tzdata.md5sums", Body: "abc  /usr/share/zoneinfo/UTC\n"},
+		testimg.File{Path: "usr/lib/python3/dist-packages/six-1.16.0.dist-info/METADATA", Body: "Name: six\n"},
+	)
+	_, _, pkgs, err := ReadTar(context.Background(), bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 2 || pkgs["/var/lib/dpkg/status"][0].Name != "curl" || pkgs["/usr/lib/python3/dist-packages/six-1.16.0.dist-info/METADATA"][0].Version != "1.16.0" {
+		t.Fatalf("packages: %+v", pkgs)
 	}
 }

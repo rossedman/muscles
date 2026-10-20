@@ -38,21 +38,45 @@ Every object has `"schema": "muscles/v1"`. Within `v1`, fields are only ever add
      "counts": {"added": 220, "modified": 3, "meta": 0, "deleted": 0},
      "wasted": 12000000, "summary": "mostly /usr (28 MB)",
      "mostly": [{"path": "/usr", "bytes": 28000000}],
-     "notes": [{"kind": "package_cache", "message": "apt lists left behind: 12 MB", "bytes": 12000000, "path": "/var/lib/apt/lists"}]}
+     "dockerfile_line": 3,
+     "packages": {"installed": [{"manager": "dpkg", "name": "curl", "version": "7.88.1-10"}], "removed": [], "upgraded": []},
+     "notes": [{"kind": "package_cache", "message": "apt lists left behind: 12 MB", "bytes": 12000000, "files": 41,
+                "path": "/var/lib/apt/lists", "fix": "End this RUN with `&& rm -rf /var/lib/apt/lists/*`."}]}
   ],
   "empty_steps_after": ["CMD [\"python\" \"main.py\"]"]
 }
 ```
 
-Note kinds: `package_cache`, `hidden_delete`, `permission_rewrite`, `large_file`.
+Note kinds: `package_cache`, `hidden_delete`, `permission_rewrite`, `overwrite`, `large_file`. Every note has a `fix`; `files` counts the files involved and `stored_in` lists the layers that still store the bytes, when that applies.
+
+`dockerfile_line` is present only with `--dockerfile` and a matching line. `packages` is present only on layers that changed the dpkg, apk or pip package databases; the packages are `{manager, name, version}`, upgrades `{manager, name, from, to}`.
+
+`images inspect`:
+
+```json
+{
+  "schema": "muscles/v1",
+  "image": {"ref": "app:dev", "...": "as in layers list"},
+  "saves": 108000000,
+  "fixes": [
+    {"kind": "permission_rewrite", "layer": 5, "step": "RUN chown -R app /app", "dockerfile_line": 14, "saves": 60000000,
+     "problem": "Stores 1,204 files, 60 MB again only to change owner or permissions; the first copy is still in L4.",
+     "fix": "Set the owner as the files are added (`COPY --chown=USER:GROUP`, ...) and drop this chown."}
+  ],
+  "worth_a_look": [{"kind": "large_file", "layer": 4, "step": "COPY . .", "saves": 0, "problem": "A single 80 MB file: /app/models/base.onnx.", "fix": "..."}],
+  "biggest_layers": [{"index": 3, "step": "RUN pip install -r requirements.txt", "size": 140000000, "summary": "mostly /usr/local/lib/python3.12/site-packages (139 MB)"}]
+}
+```
+
+Fixes are sorted by `saves`, biggest first, and `saves` at the top is their sum. `kind` is a note kind.
 
 `changes list`: `{schema, image, layer, changes: [{layer, path, dir, type, kind, size, prev_size, prev_layer, count}]}`. `layer` is `null` without `--layer`; `prev_layer` is `-1` when there was no earlier version; `dir: true` marks a rolled-up directory of `count` changes.
 
 `waste list`: `{schema, image, waste, items: [{path, dir, size, count, stored_in, hidden_by, reason}]}`.
 
-`images diff`: `{schema, base, target, size_delta, compressed_delta, shared_layers, layers: [{index, shared, step, base_size, target_size}], changes: [...]}`. A layer missing from one image has `null` for its size.
+`images diff`: `{schema, base, target, size_delta, compressed_delta, shared_layers, layers: [{index, shared, step, base_size, target_size}], changes: [...], summary, packages: {installed, removed, upgraded}}`. A layer missing from one image has `null` for its size. `summary` is the one-sentence verdict the table starts with.
 
-`images check`: `{schema, ok, image, baseline, failed, warnings, results: [{rule, status, message, detail}]}`.
+`images check`: `{schema, ok, image, baseline, failed, warnings, results: [{rule, status, message, detail, fix, layer, dockerfile_line}]}`. `fix` is set on failures and warnings; `layer` and `dockerfile_line` when a layer is at fault (and its line is known).
 
 `config list`: `{schema, user_file, project_file, settings: [{key, value, origin, env, help}]}`.
 
@@ -66,7 +90,7 @@ Errors under `--json` are an object on stderr: `{"error": {"code", "message", "r
 
 ## Markdown
 
-Markdown output has a heading and a table; `images diff` adds a layers table and folds long file lists into `<details>`. It's made for `$GITHUB_STEP_SUMMARY` and pull request comments:
+Markdown output has a heading and a table; `images inspect` is a numbered list of fixes, `images check` adds a **How to fix** list, and `images diff` starts with its one-sentence summary, adds a layers table and a packages table, and folds long file lists into `<details>`. It's made for `$GITHUB_STEP_SUMMARY` and pull request comments:
 
 ```sh
 muscles images diff ghcr.io/acme/app:main app.tar -o markdown >> "$GITHUB_STEP_SUMMARY"

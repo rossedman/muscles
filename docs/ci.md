@@ -54,7 +54,7 @@ jobs:
         run: muscles images check app.tar --baseline ghcr.io/acme/app:main
 ```
 
-`images check` reads the budgets from `.muscles.yaml` in your repository (see [Checks and budgets](checks.md)) and exits 5 when one fails. When `GITHUB_ACTIONS` is set, it also prints `::error` and `::warning` workflow commands, so failures and warnings show up as annotations on the run. Annotations go with table and plain output only, never into JSON or Markdown.
+`images check` reads the budgets from `.muscles.yaml` in your repository (see [Checks and budgets](checks.md)) and exits 5 when one fails. When `GITHUB_ACTIONS` is set, it also prints `::error` and `::warning` workflow commands, so failures and warnings show up as annotations on the run. Each annotation says how to fix the problem. Set `dockerfile: Dockerfile` in `.muscles.yaml` (or pass `--dockerfile`) and annotations about a layer are placed on its Dockerfile line, so they show up in the pull request's diff. Annotations go with table and plain output only, never into JSON or Markdown.
 
 !!! tip "No setup-go?"
     Use the container image instead of `go install`:

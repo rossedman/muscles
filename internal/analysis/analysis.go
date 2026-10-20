@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/rossedman/muscles/internal/index"
+	"github.com/rossedman/muscles/internal/pkgdb"
 )
 
 // ChangeType classifies a change to a path.
@@ -75,14 +76,18 @@ const (
 	NoteHiddenDelete      = "hidden_delete"
 	NotePermissionRewrite = "permission_rewrite"
 	NoteLargeFile         = "large_file"
+	NoteOverwrite         = "overwrite"
 )
 
 // Note is something in a layer worth a warning.
 type Note struct {
-	Kind    string `json:"kind"`
-	Message string `json:"message"`
-	Bytes   int64  `json:"bytes"`
-	Path    string `json:"path,omitempty"`
+	Kind     string `json:"kind"`
+	Message  string `json:"message"`
+	Bytes    int64  `json:"bytes"`
+	Files    int    `json:"files,omitempty"`
+	Path     string `json:"path,omitempty"`
+	StoredIn []int  `json:"stored_in,omitempty"` // layers that still store the bytes
+	Fix      string `json:"fix"`                 // what to change, in one sentence
 }
 
 // DirBytes is a directory and the changed bytes under it.
@@ -93,20 +98,22 @@ type DirBytes struct {
 
 // Layer is the analysis of one layer.
 type Layer struct {
-	Index       int        `json:"index"`
-	DiffID      string     `json:"diff_id"`
-	Digest      string     `json:"digest"`
-	Size        int64      `json:"size"`
-	Compressed  int64      `json:"compressed"`
-	Step        string     `json:"step"`
-	Created     time.Time  `json:"created"`
-	EmptyBefore []string   `json:"empty_steps_before"`
-	Counts      Counts     `json:"counts"`
-	Wasted      int64      `json:"wasted"` // bytes stored here that a later layer hid
-	Mostly      []DirBytes `json:"mostly"`
-	Summary     string     `json:"summary"`
-	Notes       []Note     `json:"notes"`
-	Changes     []Change   `json:"-"`
+	Index       int         `json:"index"`
+	DiffID      string      `json:"diff_id"`
+	Digest      string      `json:"digest"`
+	Size        int64       `json:"size"`
+	Compressed  int64       `json:"compressed"`
+	Step        string      `json:"step"`
+	Line        int         `json:"dockerfile_line,omitempty"` // the Dockerfile line of Step, when known
+	Created     time.Time   `json:"created"`
+	EmptyBefore []string    `json:"empty_steps_before"`
+	Counts      Counts      `json:"counts"`
+	Wasted      int64       `json:"wasted"` // bytes stored here that a later layer hid
+	Mostly      []DirBytes  `json:"mostly"`
+	Summary     string      `json:"summary"`
+	Notes       []Note      `json:"notes"`
+	Packages    *pkgdb.Diff `json:"packages,omitempty"` // packages this layer installed, upgraded or removed
+	Changes     []Change    `json:"-"`
 }
 
 // FinalEntry is a path in the final filesystem and the layer that stored it.
@@ -128,6 +135,7 @@ type Report struct {
 	EmptyAfter []string // empty steps after the last layer (CMD, ENTRYPOINT, ...)
 	WasteItems []WasteItem
 	Final      map[string]FinalEntry
+	Packages   pkgdb.Set // installed in the final image, from dpkg, apk and Python metadata
 }
 
 // Options tune the notes.
@@ -135,11 +143,12 @@ type Options struct {
 	LargeFile         int64 // note single files at least this big; 0 disables
 	PermissionRewrite int64 // note meta rewrites at least this big; 0 disables
 	PackageCache      bool  // note package manager caches
+	Overwrite         int64 // note files replaced from earlier layers totalling at least this; 0 disables
 }
 
 // DefaultOptions are the built-in note thresholds.
 func DefaultOptions() Options {
-	return Options{LargeFile: 50_000_000, PermissionRewrite: 1_000_000, PackageCache: true}
+	return Options{LargeFile: 50_000_000, PermissionRewrite: 1_000_000, PackageCache: true, Overwrite: 10_000_000}
 }
 
 // Analyze replays img's layers.
@@ -148,12 +157,15 @@ func Analyze(img *index.Image, o Options) *Report {
 	steps, created, before, after := pairSteps(img.History, len(img.Layers))
 	r.EmptyAfter = after
 	fs := newFS()
+	pk := packageTracker{sources: map[string]pkgSource{}, prev: pkgdb.Set{}}
 	for i, il := range img.Layers {
 		l := Layer{Index: i, DiffID: il.DiffID, Digest: il.Digest, Size: il.Size, Compressed: il.Compressed, Step: steps[i], Created: created[i], EmptyBefore: before[i]}
 		var waste []WasteItem
 		for j := range il.Entries {
 			l.Changes, waste = fs.apply(&il.Entries[j], i, l.Changes, waste)
+			pk.apply(&il.Entries[j], i, il.Packages)
 		}
+		l.Packages = pk.diff()
 		for _, c := range l.Changes {
 			switch c.Type {
 			case Added:
@@ -184,10 +196,70 @@ func Analyze(img *index.Image, o Options) *Report {
 		l := &r.Layers[i]
 		l.Mostly = mostly(l.Changes)
 		l.Summary = summarize(l.Mostly)
-		l.Notes = notes(l.Changes, o)
+		if l.Packages != nil {
+			l.Summary = l.Packages.Summary()
+		}
+		l.Notes = notes(l.Changes, l.Step, o)
 	}
 	r.Final = fs.final()
+	r.Packages = pk.prev
 	return r
+}
+
+// pkgSource is the packages one database file (or .dist-info) declares,
+// and the layer that stored it.
+type pkgSource struct {
+	pkgs  []pkgdb.Pkg
+	layer int
+}
+
+// packageTracker follows package database files through the layers the way
+// the filesystem does, so each layer's package changes can be diffed.
+type packageTracker struct {
+	sources map[string]pkgSource
+	prev    pkgdb.Set
+}
+
+func (t *packageTracker) apply(e *index.Entry, layer int, declared map[string][]pkgdb.Pkg) {
+	switch e.Type {
+	case index.Whiteout:
+		for p := range t.sources {
+			if p == e.Path || strings.HasPrefix(p, e.Path+"/") {
+				delete(t.sources, p)
+			}
+		}
+	case index.Opaque:
+		for p, s := range t.sources {
+			if strings.HasPrefix(p, e.Path+"/") && s.layer < layer {
+				delete(t.sources, p)
+			}
+		}
+	default:
+		if ps, ok := declared[e.Path]; ok {
+			t.sources[e.Path] = pkgSource{pkgs: ps, layer: layer}
+		} else {
+			delete(t.sources, e.Path) // replaced by something that declares nothing
+		}
+	}
+}
+
+// diff returns the change since the last call, or nil if there was none.
+func (t *packageTracker) diff() *pkgdb.Diff {
+	paths := make([]string, 0, len(t.sources))
+	for p := range t.sources {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	cur := pkgdb.Set{}
+	for _, p := range paths {
+		cur.Add(t.sources[p].pkgs...)
+	}
+	d := pkgdb.Compare(t.prev, cur)
+	t.prev = cur
+	if d.Empty() {
+		return nil
+	}
+	return &d
 }
 
 // pairSteps pairs history entries that produced layers with the layers,

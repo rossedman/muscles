@@ -28,9 +28,10 @@ var ProjectFiles = []string{".muscles.yaml", ".muscles.yml"}
 
 // Config is the resolved configuration.
 type Config struct {
-	Source   string `mapstructure:"source"`
-	Platform string `mapstructure:"platform"`
-	Output   struct {
+	Source     string `mapstructure:"source"`
+	Platform   string `mapstructure:"platform"`
+	Dockerfile string `mapstructure:"dockerfile"`
+	Output     struct {
 		Units string `mapstructure:"units"`
 	} `mapstructure:"output"`
 	Cache struct {
@@ -50,6 +51,7 @@ type Config struct {
 		LargeFile         string `mapstructure:"large_file"`
 		PermissionRewrite string `mapstructure:"permission_rewrite"`
 		PackageCache      bool   `mapstructure:"package_cache"`
+		Overwrite         string `mapstructure:"overwrite"`
 	} `mapstructure:"warn"`
 }
 
@@ -64,6 +66,7 @@ type Key struct {
 var Keys = []Key{
 	{"source", "auto", "where images come from: auto, docker, remote, tar, oci"},
 	{"platform", "", "platform of multi-platform images, like linux/arm64 (default: linux on this machine's architecture)"},
+	{"dockerfile", "", "Dockerfile to match layers to lines in (the final stage)"},
 	{"output.units", "si", "size units: si (MB) or iec (MiB)"},
 	{"cache.dir", "", "layer index cache (default: $XDG_CACHE_HOME/muscles)"},
 	{"cache.max_size", "2GB", "cache size cap; least recently used layers go first"},
@@ -77,6 +80,7 @@ var Keys = []Key{
 	{"warn.large_file", "50MB", "note single files at least this big (0 turns it off)"},
 	{"warn.permission_rewrite", "1MB", "note files stored again only for a permission or owner change (0 turns it off)"},
 	{"warn.package_cache", true, "note package manager caches left in a layer"},
+	{"warn.overwrite", "10MB", "note a layer replacing at least this much stored by earlier layers (0 turns it off)"},
 }
 
 // EnvVar is the environment variable for a key: check.max_size is
@@ -331,6 +335,9 @@ func (c Config) Analysis() (analysis.Options, error) {
 	if o.LargeFile, err = parse("warn.large_file", c.Warn.LargeFile); err != nil {
 		return o, err
 	}
-	o.PermissionRewrite, err = parse("warn.permission_rewrite", c.Warn.PermissionRewrite)
+	if o.PermissionRewrite, err = parse("warn.permission_rewrite", c.Warn.PermissionRewrite); err != nil {
+		return o, err
+	}
+	o.Overwrite, err = parse("warn.overwrite", c.Warn.Overwrite)
 	return o, err
 }

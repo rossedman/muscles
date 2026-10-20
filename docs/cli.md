@@ -3,12 +3,16 @@
 muscles reads like a sentence: `muscles <noun> <verb> <target> --modifier`. Every command has `--help` with real examples; `-h` prints a short screen. Bare `muscles` prints help.
 
 ```text
+Start here
+  muscles IMAGE                    what to fix first, and what each fix saves
+
 Explain an image
   muscles layers list IMAGE        each layer: size, changes, step, notes
   muscles changes list IMAGE       the paths layers added, modified, rewrote or deleted
   muscles waste list IMAGE         hidden bytes, biggest first, and the layers responsible
 
 Compare and gate
+  muscles images inspect IMAGE     the same as `muscles IMAGE`
   muscles images diff BASE TARGET  what changed from one image to another
   muscles images check IMAGE       budgets and forbidden paths; exits 5 on failure
 
@@ -23,6 +27,29 @@ Settings and more
 
 `IMAGE` is a local daemon tag, a registry reference, a tarball or an OCI layout; see [Where images come from](getting-started.md#where-images-come-from). If you leave out a required argument at a terminal, muscles asks for it and then shows the full command; without a terminal it exits 2 and names what's missing.
 
+## Shortcuts
+
+Two shortcuts save typing; the full commands are what you put in scripts.
+
+| You type | muscles runs |
+|---|---|
+| `muscles app:dev` | `muscles images inspect app:dev` |
+| `muscles layers app:dev` | `muscles layers list app:dev` |
+| `muscles changes app:dev --layer 3` | `muscles changes list app:dev --layer 3` |
+| `muscles waste app:dev` | `muscles waste list app:dev` |
+
+A word that is a command, or close to one (`lyers`), is never taken as an image, so typos still get a suggestion.
+
+## Next steps
+
+At a terminal, a command that has an obvious follow-up ends with one line on stderr saying what to run next, with the real image filled in:
+
+```text
+Next: muscles changes list app:dev --layer 5   (the files behind fix 1)
+```
+
+It is printed only when stderr is a terminal, never in pipes, CI logs or with `--quiet`, and never on stdout.
+
 ## Global flags
 
 | Flag | Meaning |
@@ -33,6 +60,7 @@ Settings and more
 | `--platform OS/ARCH[/VARIANT]` | Platform of a multi-platform image. Default: Linux on this machine's architecture. Config key `platform`. |
 | `--config FILE` | Project config file. Default: the nearest `.muscles.yaml`. |
 | `--cache-dir DIR` | Layer index cache. Default: `$XDG_CACHE_HOME/muscles`. Config key `cache.dir`. |
+| `--dockerfile PATH` | The Dockerfile the image was built from. Layers, fixes and check results then name the line that made them (`Dockerfile:12`), and GitHub annotations point at it. Config key `dockerfile`. |
 | `--fresh` | Index every layer again instead of using the cache. |
 | `--timeout DURATION` | Give up after this long, like `5m`. Default: no limit. |
 | `--no-color` | No color. Also `NO_COLOR=1`, `TERM=dumb`, and whenever the stream isn't a terminal. |
@@ -40,15 +68,32 @@ Settings and more
 | `-v, --verbose` | Print detail on stderr, like which layers came from the cache. Wins over `--quiet`. |
 | `-h, --help` | `-h` is a short screen; `--help` is everything. |
 
+## images inspect
+
+```text
+muscles images inspect IMAGE [--limit N]
+muscles IMAGE [--limit N]
+```
+
+One screen: the image's size, what it costs to pull, how much is waste, then **Fix these first**: each fix with what it saves, the layer and Dockerfile step (and line, with `--dockerfile`), the problem and the change to make. Then files worth a look and the three biggest layers.
+
+Every wasted byte is accounted for, whatever the `warn.*` thresholds, and each is counted by one fix only, so the savings add up to the image's waste.
+
+| Flag | Meaning |
+|---|---|
+| `--limit N` | Show at most N fixes in table and Markdown output (default 5); the rest are summed in one line. `0` shows all. Plain and JSON output always list every fix. |
+
+Plain output: `rank, saves, layer, dockerfile line, step, problem, fix`, one line per fix (line `0` when unknown). See [Finding waste](waste.md#fix-it).
+
 ## layers list
 
 ```text
 muscles layers list IMAGE
 ```
 
-One row per layer: index, uncompressed size, counts of added (`+`), modified (`~`), rewritten (`◌`) and deleted (`-`) files, the Dockerfile step, and a note. Steps without a layer are dimmed between rows. See [Reading layers](layers.md).
+One row per layer: index, uncompressed size, counts of added (`+`), modified (`~`), rewritten (`◌`) and deleted (`-`) files, the Dockerfile step, and a note: what the layer did (packages it installed, or where its bytes went) or a warning. Steps without a layer are dimmed between rows. See [Reading layers](layers.md).
 
-Plain output: `index, size, compressed, added, modified, meta, deleted, step, note`, one line per layer.
+Plain output: `index, size, compressed, added, modified, meta, deleted, step, note, dockerfile line, fix`, one line per layer.
 
 ## changes list
 
@@ -81,6 +126,8 @@ Plain output: `size, path, count, reason, stored-in layer, hidden-by layer`. See
 muscles images diff BASE TARGET [--files] [--limit N]
 ```
 
+The output starts with one sentence: how much bigger or smaller TARGET is, the step it came from, the biggest file changes and the packages that changed. Then the layers, the packages installed, upgraded and removed, and the filesystem changes.
+
 Plain output is the filesystem changes: `type, size, path, count, note`. See [Comparing images](diff.md).
 
 ## images check
@@ -90,7 +137,9 @@ muscles images check IMAGE [--baseline IMAGE] [--max-size SIZE] [--max-compresse
                            [--max-waste SIZE|PCT] [--max-growth SIZE|PCT] [--max-layers N]
 ```
 
-Each `--max-*` flag overrides the matching `check.*` setting. Exits 5 if a rule fails. See [Checks and budgets](checks.md).
+Each `--max-*` flag overrides the matching `check.*` setting. Exits 5 if a rule fails. Every failure and warning says how to fix it, in a **How to fix** section after the table.
+
+Plain output: `status, rule, result, detail, fix, dockerfile line`, one line per rule. See [Checks and budgets](checks.md).
 
 ## config list
 

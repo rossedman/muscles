@@ -43,6 +43,19 @@ Rules that aren't configured are skipped. With nothing configured, `images check
 
 Sizes accept SI units (`KB`, `MB`, `GB`: powers of 1000) and IEC units (`KiB`, `MiB`, `GiB`: powers of 1024).
 
+## How to fix
+
+After the table, every failure and warning says what to change:
+
+```text
+HOW TO FIX
+ ✗ size: Run `muscles images inspect app.tar` for the fixes that save the most.
+ ⚠ package cache (Dockerfile:5): End this RUN with `&& rm -rf /var/lib/apt/lists/*`.
+ ⚠ forbid (L4): Keep it out of the build context with .dockerignore, or stop adding it in L4.
+```
+
+With `--dockerfile` (or `dockerfile:` in `.muscles.yaml`), results caused by one layer name its Dockerfile line, and in GitHub Actions their annotations are placed on that line.
+
 ## Patterns
 
 `forbid` and `allow` are glob patterns matched against every path in the final filesystem:
@@ -64,4 +77,4 @@ The layer notes ([Reading layers](layers.md#notes)) are reported as warnings: pa
 muscles images check app.tar --json | jq '.results[] | select(.status == "fail")'
 ```
 
-The JSON report has `ok`, `failed`, `warnings` and one result per rule with `rule`, `status` (`pass`, `fail`, `warn`, `skip`), `message` and `detail`.
+The JSON report has `ok`, `failed`, `warnings` and one result per rule with `rule`, `status` (`pass`, `fail`, `warn`, `skip`), `message`, `detail`, `fix`, and `layer` and `dockerfile_line` when a layer is at fault.

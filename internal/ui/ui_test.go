@@ -86,3 +86,16 @@ func TestTable(t *testing.T) {
 		t.Fatal("no color in colored table")
 	}
 }
+
+func TestTail(t *testing.T) {
+	tb := Table{Columns: []Column{{Title: "STEP", Max: 20}}}
+	tb.Add(Cell{Text: "RUN a very long command (Dockerfile:3)", Tail: len(" (Dockerfile:3)")})
+	tb.Add(Cell{Text: "RUN short (Dockerfile:3)", Tail: 100})
+	var b strings.Builder
+	if err := tb.Render(&b, NewTheme(false)); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(b.String(), "RUN … (Dockerfile:3)") || !strings.Contains(b.String(), "RUN short (Dockerfi…") {
+		t.Errorf("tail:\n%s", b.String())
+	}
+}

@@ -25,7 +25,19 @@ In CI, use the container image: `ghcr.io/rossedman/muscles`.
 Pick any image. A public one works without logging in:
 
 ```sh
-muscles layers list python:3.12-slim
+muscles python:3.12-slim
+```
+
+![muscles IMAGE: size, waste, and the fixes ranked by what they save](assets/terminal/inspect.png)
+
+That's the short way to run `muscles images inspect`: the image's size, what it costs to pull, how much of it is waste, and the fixes that save the most, each with the layer to change and what to change. If it's your own image, add `--dockerfile Dockerfile` and each fix names its line.
+
+At a terminal, each command ends with a `Next:` line on stderr suggesting what to run next. Follow it and you'll walk from the summary down to the files.
+
+## Every layer
+
+```sh
+muscles layers python:3.12-slim       # short for: muscles layers list python:3.12-slim
 ```
 
 ![muscles layers list: one row per layer with size, change counts, the Dockerfile step and a note](assets/terminal/layers.png)
@@ -38,7 +50,7 @@ Each row is a layer, bottom to top:
 | `SIZE` | Uncompressed bytes the layer stores. |
 | `+ ~ ◌ -` | Files added, modified, rewritten with the same contents, and deleted. |
 | `STEP` | The Dockerfile instruction that made the layer. Dimmed rows are steps that made no layer (`ENV`, `CMD`, ...). |
-| `NOTE` | Where most of the bytes went, or a ⚠ warning worth acting on. |
+| `NOTE` | The packages the layer installed, or where most of the bytes went, or a ⚠ warning worth acting on. |
 
 The last line totals the image: uncompressed size, compressed size (what you pull) and waste.
 
@@ -60,7 +72,7 @@ Directories whose changes are all alike are rolled up into one row. Add `--files
 muscles waste list python:3.12-slim
 ```
 
-Waste is bytes stored in a layer that the final image doesn't show, because a later layer overwrote, deleted or re-stored them. [Finding waste](waste.md) shows how to fix each kind.
+Waste is bytes stored in a layer that the final image doesn't show, because a later layer overwrote, deleted or re-stored them. `muscles IMAGE` turns it into fixes; [Finding waste](waste.md) explains each kind.
 
 ## Compare two images
 
@@ -68,7 +80,7 @@ Waste is bytes stored in a layer that the final image doesn't show, because a la
 muscles images diff ghcr.io/acme/app:1.8.0 ghcr.io/acme/app:1.9.0
 ```
 
-See [Comparing images](diff.md).
+The first line is the answer in one sentence: how much it grew or shrank, in which step, the biggest file changes and the packages that changed. See [Comparing images](diff.md).
 
 ## Where images come from
 
