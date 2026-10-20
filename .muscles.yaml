@@ -1,0 +1,8 @@
+# Budgets for muscles' own release image (Dockerfile), checked in CI.
+check:
+  max_size: 40MB
+  max_waste: 1MB
+  max_layers: 20
+  forbid:
+    - "**/.env"
+    - "**/.git/"

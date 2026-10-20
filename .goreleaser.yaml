@@ -1,0 +1,112 @@
+# Release builds. A pushed tag (v*) runs .github/workflows/release.yml,
+# which runs this. Try it locally with: make release-snapshot
+version: 2
+
+project_name: muscles
+
+before:
+  hooks:
+    - go mod download
+    - ./scripts/extras.sh
+
+builds:
+  - main: ./cmd/muscles
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X github.com/rossedman/muscles/internal/version.Version={{ .Tag }}
+      - -X github.com/rossedman/muscles/internal/version.Commit={{ .ShortCommit }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - completions/*
+      - manpages/*
+
+checksum:
+  name_template: checksums.txt
+
+# A multi-arch image for CI systems that run steps in containers.
+dockers_v2:
+  - images:
+      - ghcr.io/rossedman/muscles
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms: [linux/amd64, linux/arm64]
+    dockerfile: Dockerfile
+    labels:
+      org.opencontainers.image.title: muscles
+      org.opencontainers.image.description: Explain container images, layer by layer
+      org.opencontainers.image.source: https://github.com/rossedman/muscles
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.licenses: MIT
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge pull request"
+      - "^Merge branch"
+      - "^Update (Go modules|Actions|docs packages):"
+  groups:
+    - title: Features
+      regexp: '^(Add|Support|Introduce|Show|Detect)\b'
+      order: 0
+    - title: Fixes
+      regexp: '^Fix\b'
+      order: 1
+    - title: Other changes
+      order: 999
+
+release:
+  github:
+    owner: rossedman
+    name: muscles
+  footer: |
+    Install with Homebrew (`brew install rossedman/tap/muscles`), `go install github.com/rossedman/muscles/cmd/muscles@{{ .Tag }}`,
+    the container image (`ghcr.io/rossedman/muscles:{{ .Version }}`), or download an archive below and put `muscles` on your PATH.
+    Docs: https://rossedman.io/muscles/
+
+# A Homebrew cask in rossedman/homebrew-tap. It's skipped until the
+# HOMEBREW_TAP_GITHUB_TOKEN secret exists (see docs/releasing.md).
+homebrew_casks:
+  - name: muscles
+    repository:
+      owner: rossedman
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    skip_upload: '{{ if not (index .Env "HOMEBREW_TAP_GITHUB_TOKEN") }}true{{ end }}'
+    directory: Casks
+    homepage: https://rossedman.io/muscles/
+    description: Explain container images, layer by layer
+    license: MIT
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    commit_msg_template: "muscles {{ .Tag }}"
+    completions:
+      bash: completions/muscles.bash
+      zsh: completions/muscles.zsh
+      fish: completions/muscles.fish
+    manpages:
+      - manpages/muscles.1.gz
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/muscles"]
+          end

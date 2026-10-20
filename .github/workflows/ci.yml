@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: make fmt
+      - name: vet
+        run: make vet
+      - name: test (race)
+        run: go test -race ./...
+      - name: coverage (90% or more)
+        run: make cover
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+
+  # muscles checking an image of itself: the release Dockerfile, built to a
+  # tarball, against the budgets in .muscles.yaml.
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build muscles and its image
+        run: |
+          make build
+          mkdir -p linux/amd64
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o linux/amd64/muscles ./cmd/muscles
+          docker build --platform linux/amd64 -t muscles:ci .
+          docker save muscles:ci -o muscles.tar
+      - name: Explain it
+        run: |
+          ./muscles layers list muscles:ci          # from the Docker daemon
+          ./muscles layers list muscles.tar -o markdown >> "$GITHUB_STEP_SUMMARY"
+      - name: Check it
+        run: ./muscles images check muscles.tar
+
+  release-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: check

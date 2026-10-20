@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://rossedman.io/muscles/
+    about: Guides, the CLI reference and troubleshooting.

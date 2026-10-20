@@ -1,0 +1,52 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="brand.css">
+<style>
+  body {
+    background:
+      radial-gradient(820px 460px at 12% 30%, rgba(56,189,248,0.18), transparent 70%),
+      radial-gradient(620px 420px at 100% 110%, rgba(244,114,182,0.16), transparent 70%),
+      radial-gradient(500px 300px at 60% -20%, rgba(167,139,250,0.12), transparent 70%),
+      var(--ink);
+  }
+  .grid { mask-image: linear-gradient(90deg, rgba(0,0,0,0.9), rgba(0,0,0,0.12)); }
+  .wrap { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 48px 0 52px; gap: 30px; }
+  .logo { width: 132px; height: 132px; flex: none; filter: drop-shadow(0 18px 30px rgba(0,0,0,0.55)); }
+  .text { flex: 1; min-width: 0; }
+  h1 { font-size: 92px; font-weight: 800; letter-spacing: -4px; line-height: 0.95; padding-bottom: 6px; }
+  p { margin-top: 12px; font-size: 22px; white-space: nowrap; line-height: 1.4; color: var(--fog); }
+  p b { color: var(--snow); font-weight: 600; }
+  .chips { margin-top: 20px; display: flex; gap: 8px; }
+  .chip { padding: 5px 11px; border-radius: 999px; font-size: 13.5px; white-space: nowrap; font-weight: 600; background: var(--ink-2); border: 1px solid var(--ink-3); color: var(--snow); }
+  .chip b { font-weight: 800; margin-right: 6px; }
+  .term { width: 486px; flex: none; }
+  .term .body { font-size: 13px; line-height: 1.75; }
+  .n { display: inline-block; width: 18px; text-align: right; }
+</style></head>
+<body>
+  <div class="grid"></div>
+  <div class="wrap">
+    <img class="logo" src="../site/logo.svg" alt="">
+    <div class="text">
+      <h1 class="grad">muscles</h1>
+      <p>Explain container images, <b>layer by layer.</b><br>Find the waste. Gate it in CI.</p>
+      <div class="chips mono">
+        <div class="chip"><b class="a">+</b>added</div>
+        <div class="chip"><b class="m">~</b>modified</div>
+        <div class="chip"><b class="x">◌</b>rewritten</div>
+        <div class="chip"><b class="r">-</b>deleted</div>
+      </div>
+    </div>
+    <div class="term mono">
+      <div class="bar"><i></i><i></i><i></i><span>~ zsh</span></div>
+      <div class="body"><span class="p">$</span> <span class="c">muscles layers list app:dev</span>
+<span class="d">#   SIZE     +   ~   ◌  -  STEP</span>
+<span class="d">0</span>  <span class="c">74 MB</span> <span class="a">3104</span>   <span class="d">·</span>   <span class="d">·</span>  <span class="d">·</span>  <span class="c">debian:bookworm-slim</span>
+<span class="d">1</span>  <span class="c">41 MB</span>  <span class="a">220</span>   <span class="m">3</span>   <span class="d">·</span>  <span class="d">·</span>  <span class="c">RUN apt-get install</span> <span class="w">⚠</span>
+<span class="d">3</span> <span class="c">182 MB</span> <span class="a">1204</span>  <span class="m">12</span>   <span class="d">·</span> <span class="r">310</span>  <span class="c">RUN pip install</span> <span class="w">⚠</span>
+<span class="d">4</span>  <span class="c">96 MB</span>    <span class="d">·</span>   <span class="d">·</span> <span class="x">412</span>  <span class="d">·</span>  <span class="c">RUN chown -R app /app</span> <span class="w">⚠</span>
+<span class="p">$</span> <span class="c">muscles images check app.tar</span>
+<span class="r">✗ fail</span>  waste   <span class="c">108 MB &gt; 50 MB</span>
+<span class="a">✓ pass</span>  growth  <span class="c">+38 MB ≤ +50 MB</span></div>
+    </div>
+  </div>
+</body></html>

@@ -1,0 +1,61 @@
+/* Shared look for the README graphics and diagrams. Rendered to PNG by
+   ../render.sh. Fonts are vendored in fonts/ (SIL OFL) so renders are
+   reproducible offline. The site uses the same palette (site/theme.css). */
+@font-face { font-family: Inter; src: url(fonts/Inter-Variable.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "JetBrains Mono"; src: url(fonts/JetBrainsMono-Variable.woff2) format("woff2"); font-weight: 100 800; }
+
+:root {
+  --ink: #0b1020;        /* background: deep navy */
+  --ink-2: #121a2e;      /* raised panels */
+  --ink-3: #22304d;      /* borders, inner panels */
+  --ink-4: #070b16;      /* terminals, wells */
+  --brand: #38bdf8;      /* primary: sky */
+  --brand-2: #7dd3fc;    /* light sky */
+  --pink: #f472b6;       /* gradient end */
+  --add: #4ade80;        /* + added */
+  --mod: #fbbf24;        /* ~ modified */
+  --meta: #a78bfa;       /* ◌ meta, and the gradient middle */
+  --del: #f87171;        /* - deleted */
+  --snow: #eef4ff;       /* headings */
+  --fog: #aab6cf;        /* body text */
+  --dim: #6b7894;        /* secondary text */
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; }
+body {
+  font-family: Inter, sans-serif;
+  color: var(--snow);
+  background: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  position: relative;
+}
+.mono { font-family: "JetBrains Mono", monospace; font-variant-ligatures: none; font-feature-settings: "calt" 0, "liga" 0; }
+
+/* Faint grid, used behind heroes. */
+.grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(56,189,248,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Section label, top left of diagrams. */
+.label { position: absolute; font-size: 15px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--brand); }
+
+/* Terminal window. */
+.term { border-radius: 14px; background: var(--ink-4); border: 1px solid var(--ink-3); box-shadow: 0 24px 60px rgba(0,0,0,0.5); overflow: hidden; }
+.term .bar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: var(--ink-2); }
+.term .bar i { width: 11px; height: 11px; border-radius: 50%; background: #2b3a5c; display: block; }
+.term .bar span { margin-left: auto; margin-right: auto; padding-right: 48px; font-size: 13px; color: var(--dim); }
+.term .body { padding: 16px 20px 18px; line-height: 1.75; color: var(--fog); white-space: pre; }
+.p { color: var(--brand); }
+.c { color: var(--snow); }
+.d { color: var(--dim); }
+.a { color: var(--add); }
+.m { color: var(--mod); }
+.x { color: var(--meta); }
+.r { color: var(--del); }
+.w { color: var(--mod); }
+.grad { background: linear-gradient(95deg, var(--brand) 5%, var(--meta) 55%, var(--pink) 95%); -webkit-background-clip: text; background-clip: text; color: transparent; }

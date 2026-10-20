@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="brand.css">
+<style>
+  body {
+    background:
+      radial-gradient(820px 520px at 50% 18%, rgba(56,189,248,0.18), transparent 70%),
+      radial-gradient(700px 420px at 50% 125%, rgba(244,114,182,0.16), transparent 70%),
+      var(--ink);
+  }
+  .grid { mask-image: radial-gradient(ellipse 70% 70% at 50% 35%, #000 15%, transparent 75%); }
+  .wrap { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding-top: 64px; text-align: center; }
+  .logo { width: 150px; height: 150px; filter: drop-shadow(0 18px 30px rgba(0,0,0,0.5)); }
+  h1 { margin-top: 10px; font-size: 116px; font-weight: 800; letter-spacing: -5px; line-height: 1; padding-bottom: 8px; }
+  p { margin-top: 14px; font-size: 32px; line-height: 1.35; color: var(--fog); }
+  p b { color: var(--snow); font-weight: 600; }
+  .chips { margin-top: 40px; display: flex; gap: 14px; }
+  .chip { padding: 10px 18px; border-radius: 999px; font-size: 20px; font-weight: 600; background: var(--ink-2); border: 1px solid var(--ink-3); color: var(--snow); }
+  .chip b { margin-right: 8px; }
+</style></head>
+<body>
+  <div class="grid"></div>
+  <div class="wrap">
+    <img class="logo" src="../site/logo.svg" alt="">
+    <h1 class="grad">muscles</h1>
+    <p>Explain container images, <b>layer by layer.</b></p>
+    <div class="chips mono">
+      <div class="chip"><b class="a">+</b>what changed</div>
+      <div class="chip"><b class="m">⚠</b>where the waste is</div>
+      <div class="chip"><b class="x">≠</b>what a release changed</div>
+      <div class="chip"><b class="r">✗</b>fail CI on budgets</div>
+    </div>
+  </div>
+</body></html>

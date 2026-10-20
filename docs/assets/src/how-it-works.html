@@ -1,0 +1,71 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="brand.css">
+<style>
+  body { background: radial-gradient(900px 500px at 50% 0%, rgba(56,189,248,0.10), transparent 70%), var(--ink); }
+  .grid { mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, #000 10%, transparent 80%); opacity: 0.7; }
+  .page { position: absolute; inset: 0; padding: 40px 48px; display: flex; flex-direction: column; }
+  .eyebrow { font-size: 15px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--brand); }
+  h2 { margin-top: 8px; font-size: 34px; font-weight: 800; letter-spacing: -1px; color: var(--snow); }
+  h2 span { color: var(--fog); font-weight: 500; }
+  .flow { margin-top: 34px; flex: 1; display: flex; align-items: stretch; gap: 0; }
+  .col { display: flex; flex-direction: column; gap: 12px; justify-content: center; }
+  .col h4 { font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 2px; }
+  .box { padding: 13px 15px; border-radius: 12px; background: var(--ink-2); border: 1px solid var(--ink-3); }
+  .box h3 { font-size: 16px; color: var(--snow); font-weight: 700; }
+  .box p { margin-top: 4px; font-size: 13px; color: var(--fog); line-height: 1.45; }
+  .box code { font-family: "JetBrains Mono"; font-size: 12px; color: var(--brand-2); }
+  .src { width: 230px; } .src .box { border-left: 3px solid var(--brand); }
+  .stage { width: 250px; } .stage .box { border-top: 3px solid var(--brand); }
+  .stage .box.idx { border-top-color: var(--meta); }
+  .stage .box.an { border-top-color: var(--pink); }
+  .cache { border: 1px dashed var(--meta) !important; background: rgba(167,139,250,0.06) !important; }
+  .out { width: 300px; }
+  .out .box { padding: 10px 14px; }
+  .out .box h3 { font-family: "JetBrains Mono"; font-size: 14px; font-weight: 600; }
+  .out .box h3::before { content: "muscles "; color: var(--dim); font-weight: 400; }
+  .arrow { width: 54px; flex: none; display: flex; align-items: center; justify-content: center; }
+  .arrow::before { content: ""; width: 30px; height: 2px; background: linear-gradient(90deg, var(--ink-3), var(--brand)); }
+  .arrow::after { content: ""; border: 6px solid transparent; border-left: 9px solid var(--brand); margin-left: -1px; }
+  .down { height: 12px; display: flex; justify-content: center; }
+  .down::before { content: ""; width: 2px; height: 100%; background: var(--brand); }
+  .note { margin-top: 18px; font-size: 13.5px; color: var(--dim); }
+</style></head>
+<body>
+  <div class="grid"></div>
+  <div class="page">
+    <div class="eyebrow">How it works</div>
+    <h2>Read each layer once. <span>Replay them. Explain what you find.</span></h2>
+    <div class="flow">
+      <div class="col src">
+        <h4>Images</h4>
+        <div class="box"><h3>Docker daemon</h3><p><code>app:dev</code></p></div>
+        <div class="box"><h3>Registry</h3><p><code>ghcr.io/acme/app:main</code><br>streamed, never pulled</p></div>
+        <div class="box"><h3>Tarball</h3><p><code>app.tar</code> from docker save or buildx</p></div>
+        <div class="box"><h3>OCI layout</h3><p><code>oci://./out:tag</code></p></div>
+      </div>
+      <div class="arrow"></div>
+      <div class="col stage">
+        <h4>On your machine</h4>
+        <div class="box"><h3>Open</h3><p>Resolve the reference, pick the platform, read the manifest and build history.</p></div>
+        <div class="down"></div>
+        <div class="box idx"><h3>Index</h3><p>Stream each layer tar once: path, type, size, mode, owner and a hash per entry.</p></div>
+        <div class="box cache"><h3>Layer cache</h3><p>Keyed by diffID. A base image is read once and reused by every image built on it.</p></div>
+      </div>
+      <div class="arrow"></div>
+      <div class="col stage">
+        <h4>&nbsp;</h4>
+        <div class="box an"><h3>Analyze</h3><p>Replay the layers over a merged filesystem and classify every path:<br><span class="a">+ added</span> · <span class="m">~ modified</span> · <span class="x">◌ rewritten</span> · <span class="r">- deleted</span></p><p>Attribute waste to the layer that stored it and the layer that hid it. Pair layers with Dockerfile steps. Write notes.</p></div>
+      </div>
+      <div class="arrow"></div>
+      <div class="col out">
+        <h4>Commands</h4>
+        <div class="box" style="border-left:3px solid var(--add)"><h3>layers list</h3><p>size, changes, step and notes per layer</p></div>
+        <div class="box" style="border-left:3px solid var(--add)"><h3>changes list</h3><p>the paths a layer touched</p></div>
+        <div class="box" style="border-left:3px solid var(--mod)"><h3>waste list</h3><p>hidden bytes, and who hid them</p></div>
+        <div class="box" style="border-left:3px solid var(--meta)"><h3>images diff</h3><p>shared layers and the filesystem diff</p></div>
+        <div class="box" style="border-left:3px solid var(--del)"><h3>images check</h3><p>budgets and forbidden paths; exit 5 on failure</p></div>
+      </div>
+    </div>
+    <div class="note">Table, plain, JSON or Markdown, rendered from the same values · nothing leaves your machine except registry reads</div>
+  </div>
+</body></html>
