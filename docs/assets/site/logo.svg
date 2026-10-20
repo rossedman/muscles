@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- muscles: an image as a stack of layers, the top one lifted to look
+       inside, with a spark for the change it found. -->
+  <defs>
+    <linearGradient id="t1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7dd3fc"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
+    <linearGradient id="t2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c4b5fd"/><stop offset="1" stop-color="#a78bfa"/></linearGradient>
+    <linearGradient id="t3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f9a8d4"/><stop offset="1" stop-color="#f472b6"/></linearGradient>
+  </defs>
+  <!-- bottom layer -->
+  <path d="M36 134 L100 162 L100 178 L36 150 Z" fill="#be185d"/>
+  <path d="M100 162 L164 134 L164 150 L100 178 Z" fill="#9d174d"/>
+  <path d="M100 106 L164 134 L100 162 L36 134 Z" fill="url(#t3)"/>
+  <!-- middle layer -->
+  <path d="M36 100 L100 128 L100 144 L36 116 Z" fill="#7c3aed"/>
+  <path d="M100 128 L164 100 L164 116 L100 144 Z" fill="#5b21b6"/>
+  <path d="M100 72 L164 100 L100 128 L36 100 Z" fill="url(#t2)"/>
+  <!-- top layer, lifted -->
+  <path d="M36 56 L100 84 L100 100 L36 72 Z" fill="#0284c7"/>
+  <path d="M100 84 L164 56 L164 72 L100 100 Z" fill="#075985"/>
+  <path d="M100 28 L164 56 L100 84 L36 56 Z" fill="url(#t1)"/>
+  <!-- a prompt on the top face, drawn in the face's plane -->
+  <path d="M74 47 L95 55 L66 57" fill="none" stroke="#0b1020" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M96 64 L116 72" fill="none" stroke="#0b1020" stroke-width="6.5" stroke-linecap="round"/>
+  <!-- spark -->
+  <path d="M170 10 L174 24 L188 28 L174 32 L170 46 L166 32 L152 28 L166 24 Z" fill="#4ade80"/>
+</svg>

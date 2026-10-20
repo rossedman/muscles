@@ -1,0 +1,37 @@
+name: Bug report
+description: Something in muscles doesn't work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a security problem, don't open an issue: see [SECURITY.md](https://github.com/rossedman/muscles/blob/main/SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what happened instead.
+      placeholder: |
+        muscles layers list python:3.12-slim
+        Expected: …
+        Got: …
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The command's output with `-v`.
+      render: text
+  - type: input
+    id: image
+    attributes:
+      label: Image
+      description: The image, if it's public (or where it came from, if it isn't).
+  - type: input
+    id: version
+    attributes:
+      label: muscles version
+      description: "`muscles version`"
+    validations:
+      required: true

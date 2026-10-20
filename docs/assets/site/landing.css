@@ -1,0 +1,398 @@
+/* Brand colors (shared with docs/assets/src/brand.css) and the landing page. */
+
+:root {
+  --ink: #0b1020;
+  --ink-2: #121a2e;
+  --ink-3: #22304d;
+  --ink-4: #070b16;
+  --brand: #38bdf8;
+  --brand-2: #7dd3fc;
+  --brand-3: #0284c7;
+  --add: #4ade80;
+  --del: #f87171;
+  --meta: #a78bfa;
+  --mod: #fbbf24;
+  --pink: #f472b6;
+  --snow: #eef4ff;
+  --fog: #aab6cf;
+  --dim: #6b7894;
+}
+
+/* Material's dark scheme, recolored to the brand. */
+[data-md-color-scheme="slate"] {
+  --md-hue: 232;
+  --md-default-bg-color: var(--ink);
+  --md-default-fg-color: var(--snow);
+  --md-default-fg-color--light: var(--fog);
+  --md-primary-fg-color: var(--ink);
+  --md-primary-fg-color--dark: var(--ink-3);
+  --md-primary-bg-color: var(--snow);
+  --md-accent-fg-color: var(--brand);
+  --md-typeset-a-color: var(--brand);
+  --md-footer-bg-color: var(--ink-4);
+  --md-footer-bg-color--dark: #050810;
+}
+
+.md-header {
+  background: rgba(11, 16, 32, 0.74);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 rgba(56, 189, 248, 0.08);
+}
+.md-header__title { font-weight: 700; letter-spacing: -0.02em; }
+.md-header__button.md-logo img { height: 1.5rem; }
+
+/* The landing page is all custom sections; hide Material's empty article.
+   .md-main stays: on small screens it holds the menu drawer. */
+.md-container:has(.mu) .md-content,
+.md-container:has(.mu) .md-sidebar--secondary { display: none; }
+.md-container:has(.mu) .md-main__inner { margin: 0; height: 0; }
+.md-container:has(.mu) { min-height: 100vh; }
+
+.mu {
+  color: var(--fog);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+.mu *, .mu *::before, .mu *::after { box-sizing: border-box; }
+.mu a { color: var(--brand); }
+.mu code {
+  font-family: var(--md-code-font-family);
+  font-variant-ligatures: none;
+  font-size: 0.9em;
+  color: var(--brand-2);
+  background: rgba(56, 189, 248, 0.09);
+  padding: 0.08em 0.38em;
+  border-radius: 0.3em;
+}
+/* Keep short inline code like --offline in one piece; code in pre keeps its newlines. */
+.mu :not(pre) > code { white-space: nowrap; }
+.mu svg { width: 1.1em; height: 1.1em; fill: currentColor; vertical-align: -0.18em; }
+
+.mu-wrap { max-width: 62rem; margin: 0 auto; padding: 0 1rem; position: relative; }
+
+.mu-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.055) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 80% 70% at 30% 40%, #000 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 30% 40%, #000 20%, transparent 75%);
+}
+
+/* Hero */
+.mu-hero {
+  position: relative;
+  padding: 4.5rem 0 2.5rem;
+  background:
+    radial-gradient(900px 480px at 10% 25%, rgba(56, 189, 248, 0.15), transparent 70%),
+    radial-gradient(700px 420px at 95% 90%, rgba(244, 114, 182, 0.10), transparent 70%);
+}
+.mu-hero__inner > *, .mu-split > * { min-width: 0; }
+.mu-hero__inner { display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr); gap: 2.5rem; align-items: center; }
+.mu-hero__logo {
+  width: 4.4rem; height: 4.4rem;
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.45));
+  animation: mu-float 6s ease-in-out infinite;
+}
+.mu-title {
+  margin: 0.6rem 0 0;
+  font-size: clamp(2.8rem, 8vw, 4.4rem);
+  font-weight: 800; letter-spacing: -0.05em; line-height: 0.95;
+  color: var(--snow);
+}
+.mu-title {
+  background: linear-gradient(95deg, var(--brand) 5%, var(--meta) 55%, var(--pink) 95%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.mu h2 span {
+  background: linear-gradient(95deg, var(--brand), var(--meta) 60%, var(--pink));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.mu-tagline { margin: 1rem 0 0; font-size: 1.15rem; line-height: 1.45; }
+.mu-tagline b { color: var(--snow); font-weight: 600; }
+
+.mu-install {
+  margin-top: 1.6rem;
+  display: flex; align-items: center; gap: 0.6rem; max-width: 100%;
+  padding: 0.55rem 0.55rem 0.55rem 0.9rem;
+  background: var(--ink-4); border: 1px solid var(--ink-3); border-radius: 0.6rem;
+  font-family: var(--md-code-font-family); font-size: 0.7rem;
+}
+.mu-install code { background: none; padding: 0; color: var(--snow); white-space: nowrap; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.mu-install__prompt { color: var(--brand); }
+
+.mu-copy {
+  flex: none; cursor: pointer;
+  display: inline-grid; place-items: center;
+  width: 1.8rem; height: 1.8rem;
+  color: var(--dim); background: var(--ink-2);
+  border: 1px solid var(--ink-3); border-radius: 0.4rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+.mu-copy:hover, .mu-copy:focus-visible { color: var(--brand); border-color: var(--brand-3); }
+.mu-copy.is-copied { color: var(--add); border-color: var(--add); }
+
+.mu-cta { margin-top: 1.4rem; display: flex; flex-wrap: wrap; gap: 0.7rem; }
+.mu-cta--center { justify-content: center; }
+.mu-btn {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.6rem 1.1rem;
+  font-weight: 600; font-size: 0.8rem;
+  color: var(--snow) !important;
+  background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 0.6rem;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.mu-btn:hover { transform: translateY(-1px); border-color: var(--brand-3); }
+.mu-btn--primary {
+  color: var(--ink) !important;
+  background: linear-gradient(180deg, var(--brand-2), var(--brand));
+  border-color: transparent;
+  box-shadow: 0 8px 24px rgba(56, 189, 248, 0.22);
+}
+.mu-btn--primary:hover { box-shadow: 0 10px 30px rgba(56, 189, 248, 0.35); }
+
+/* Terminal */
+.mu-term {
+  border-radius: 0.8rem; background: var(--ink-4); border: 1px solid var(--ink-3);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(56, 189, 248, 0.04);
+  overflow: hidden; min-width: 0;
+}
+.mu-term__bar { height: 1.9rem; display: flex; align-items: center; gap: 0.4rem; padding: 0 0.75rem; background: var(--ink-2); }
+.mu-term__bar i { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #2b3a5c; display: block; }
+.mu-term__bar span { margin: 0 auto; padding-right: 2.2rem; font-size: 0.65rem; color: var(--dim); font-family: var(--md-code-font-family); }
+.mu-term__body {
+  padding: 1rem 1.1rem 1.2rem;
+  font-family: var(--md-code-font-family); font-variant-ligatures: none;
+  font-size: 0.72rem; line-height: 1.85;
+  overflow-x: auto; min-height: 14rem;
+}
+.mu-term__body > div { white-space: pre; }
+.mu .p { color: var(--brand); }
+.mu .c { color: var(--snow); }
+.mu .ok { color: var(--add); }
+.mu .d { color: var(--dim); }
+.mu .e { color: var(--del); }
+.mu .v { color: var(--meta); }
+.mu .a { color: var(--add); }
+.mu .m { color: var(--mod); }
+.mu .x { color: var(--meta); }
+.mu .r { color: var(--del); }
+.mu .w { color: var(--mod); }
+.mu-caret {
+  display: inline-block; width: 0.5em; height: 1.1em; margin-left: 2px;
+  vertical-align: -0.2em; background: var(--brand);
+  animation: mu-blink 1.1s steps(1) infinite;
+}
+.mu-term__body.is-typing > div { visibility: hidden; }
+.mu-term__body.is-typing > div.is-shown { visibility: visible; }
+
+/* Stats */
+.mu-stats {
+  list-style: none; margin: 3.5rem max(1rem, calc((100% - 60rem) / 2)) 0 !important;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; padding: 0 !important;
+  background: var(--ink-3); border: 1px solid var(--ink-3); border-radius: 0.8rem; overflow: hidden; max-width: 60rem;
+}
+.mu-stats li { margin: 0 !important; padding: 1.1rem 1rem; background: rgba(11, 16, 32, 0.92); text-align: center; }
+.mu-stats b { display: block; font-size: 1.5rem; font-weight: 800; color: var(--snow); letter-spacing: -0.03em; }
+.mu-stats span { font-size: 0.72rem; color: var(--dim); }
+
+/* Sections */
+.mu-section { padding: 5rem 0; position: relative; }
+.mu-section--alt {
+  background: linear-gradient(180deg, rgba(18, 26, 46, 0.6), rgba(18, 26, 46, 0.25));
+  border-top: 1px solid rgba(56, 189, 248, 0.07);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.07);
+}
+.mu-eyebrow {
+  margin: 0 0 0.6rem; text-align: center;
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--brand);
+}
+.mu h2 {
+  margin: 0; text-align: center;
+  font-size: clamp(1.6rem, 4vw, 2.3rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.12;
+  color: var(--snow);
+}
+.mu-lede { margin: 1rem 0 1.4rem; font-size: 0.92rem; }
+.mu-lede--center { text-align: center; max-width: 38rem; margin-left: auto; margin-right: auto; }
+.mu-center { text-align: center; margin-top: 2rem; }
+.mu-link { font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; }
+.mu-link svg { transition: transform 0.15s; }
+.mu-link:hover svg { transform: translateX(3px); }
+
+/* Split sections */
+.mu-split { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 3rem; align-items: start; }
+.mu-split h2, .mu-split .mu-eyebrow { text-align: left; }
+.mu-points { list-style: none; margin: 1.2rem 0 1.4rem !important; padding: 0 !important; }
+.mu-points li { margin: 0 0 0.45rem !important; display: flex; gap: 0.55rem; align-items: center; font-size: 0.82rem; color: var(--snow); }
+.mu-points svg { color: var(--brand); flex: none; }
+.mu-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+.mu-stack > *, .mu-card, .mu-cmdgroup, .mu-doc { min-width: 0; }
+
+/* A stack of layers, as `muscles layers list` sees them */
+.mu-layers { display: grid; gap: 0.55rem; }
+.mu-layer {
+  display: grid; grid-template-columns: 1.6rem 4.2rem minmax(0, 1fr); gap: 0.8rem; align-items: center;
+  padding: 0.75rem 0.9rem; border-radius: 0.7rem;
+  background: var(--ink-2); border: 1px solid var(--ink-3); border-left: 3px solid var(--brand);
+  font-family: var(--md-code-font-family); font-size: 0.7rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+  transform: perspective(900px) rotateX(8deg);
+}
+.mu-layer:nth-child(1) { margin: 0 2.4rem; opacity: 0.85; }
+.mu-layer:nth-child(2) { margin: 0 1.6rem; }
+.mu-layer:nth-child(3) { margin: 0 0.8rem; }
+.mu-layer--warn { border-left-color: var(--mod); }
+.mu-layer__i { color: var(--dim); text-align: right; }
+.mu-layer__size { color: var(--snow); font-weight: 600; text-align: right; }
+.mu-layer__step { color: var(--snow); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mu-layer__note { grid-column: 3; margin-top: -0.3rem; font-size: 0.64rem; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mu-layer__note.w { color: var(--mod); }
+.mu-bar { grid-column: 2 / 4; display: flex; height: 0.32rem; border-radius: 999px; overflow: hidden; background: var(--ink-4); }
+.mu-bar i { display: block; height: 100%; }
+.mu-bar .a { background: var(--add); } .mu-bar .m { background: var(--mod); }
+.mu-bar .x { background: var(--meta); } .mu-bar .r { background: var(--del); }
+
+/* Change types */
+.mu-kinds { margin-top: 2.8rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+.mu-kind { padding: 1.3rem; border-radius: 0.8rem; background: linear-gradient(180deg, var(--ink-2), rgba(18, 26, 46, 0.4)); border: 1px solid var(--ink-3); border-top-width: 3px; min-width: 0; }
+.mu-kind--a { border-top-color: var(--add); } .mu-kind--m { border-top-color: var(--mod); }
+.mu-kind--x { border-top-color: var(--meta); } .mu-kind--r { border-top-color: var(--del); }
+.mu-kind h3 { margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; font-weight: 700; color: var(--snow); }
+.mu-kind h3 b { font-family: var(--md-code-font-family); font-size: 1.1rem; width: 1.6rem; height: 1.6rem; display: grid; place-items: center; border-radius: 0.4rem; background: var(--ink-4); }
+.mu-kind--a h3 b { color: var(--add); } .mu-kind--m h3 b { color: var(--mod); }
+.mu-kind--x h3 b { color: var(--meta); } .mu-kind--r h3 b { color: var(--del); }
+.mu-kind p { margin: 0.7rem 0 0; font-size: 0.78rem; }
+
+/* CI output */
+.mu-check { padding: 1.1rem 1.2rem; border-radius: 0.9rem; background: var(--ink-4); border: 1px solid var(--ink-3); box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4); font-family: var(--md-code-font-family); font-size: 0.68rem; line-height: 1.9; white-space: pre; overflow-x: auto; color: var(--fog); }
+.mu-check .a { color: var(--add); } .mu-check .m { color: var(--mod); } .mu-check .r { color: var(--del); } .mu-check .d { color: var(--dim); } .mu-check .c { color: var(--snow); }
+
+/* Feature cards */
+.mu-features { margin-top: 2.8rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.mu-card {
+  padding: 1.4rem; border-radius: 0.8rem;
+  background: linear-gradient(180deg, var(--ink-2), rgba(18, 26, 46, 0.4));
+  border: 1px solid var(--ink-3);
+  transition: transform 0.2s, border-color 0.2s;
+}
+.mu-card:hover { transform: translateY(-3px); border-color: rgba(56, 189, 248, 0.35); }
+.mu-card__icon {
+  width: 2.3rem; height: 2.3rem; display: grid; place-items: center; border-radius: 0.55rem;
+  color: var(--brand); background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.2);
+}
+.mu-card__icon svg { width: 1.25rem; height: 1.25rem; vertical-align: 0; }
+.mu-card h3 { margin: 1rem 0 0.4rem; font-size: 0.95rem; font-weight: 700; color: var(--snow); letter-spacing: -0.01em; }
+.mu-card p { margin: 0; font-size: 0.8rem; }
+
+/* Quick start */
+.mu-steps { list-style: none; counter-reset: step; margin: 0 !important; padding: 0 !important; }
+.mu-steps li { counter-increment: step; position: relative; margin: 0 0 1.4rem !important; padding-left: 2.6rem; }
+.mu-steps li::before {
+  content: counter(step);
+  position: absolute; left: 0; top: -0.1rem;
+  width: 1.7rem; height: 1.7rem; display: grid; place-items: center;
+  font-size: 0.75rem; font-weight: 800; color: var(--ink);
+  background: var(--brand); border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15);
+}
+.mu-steps li:not(:last-child)::after { content: ""; position: absolute; left: 0.83rem; top: 1.9rem; bottom: -1.2rem; width: 1px; background: var(--ink-3); }
+.mu-steps h4 { margin: 0 0 0.4rem; font-size: 0.9rem; color: var(--snow); font-weight: 700; }
+.mu-steps p { margin: 0 0 0.5rem; font-size: 0.8rem; }
+/* The copy button sits beside the code, not over it: long commands scroll
+   inside the code and never slide under the button. */
+.mu-code {
+  display: flex; align-items: flex-start; gap: 0.5rem; margin: 0;
+  padding: 0.45rem 0.45rem 0.45rem 0.9rem;
+  background: var(--ink-4); border: 1px solid var(--ink-3); border-radius: 0.6rem;
+}
+.mu-code code {
+  order: 1; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: thin;
+  padding: 0.3rem 0 !important; background: none; color: var(--snow);
+  font-size: 0.7rem; line-height: 1.7; white-space: pre;
+}
+.mu-code .mu-copy { order: 2; }
+
+/* How it works */
+.mu-figure {
+  margin: 2.4rem auto 0; max-width: 58rem;
+  border-radius: 0.9rem; overflow: hidden;
+  border: 1px solid var(--ink-3);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
+}
+.mu-figure img { display: block; width: 100%; height: auto; }
+.mu-figure figcaption { display: none; }
+
+/* Commands */
+.mu-cmds { margin-top: 2.4rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.mu-cmdgroup { padding: 1.3rem 1.3rem 0.9rem; background: var(--ink-4); border: 1px solid var(--ink-3); border-radius: 0.8rem; }
+.mu-cmdgroup h3 { margin: 0 0 0.8rem; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+.mu-cmdgroup dl { margin: 0; }
+.mu-cmdgroup dt { font-family: var(--md-code-font-family); font-size: 0.76rem; color: var(--brand-2); font-weight: 500; }
+.mu-cmdgroup dt::before { content: "muscles "; color: var(--dim); }
+.mu-cmdgroup dd { margin: 0.05rem 0 0.7rem !important; font-size: 0.76rem; }
+
+/* Docs */
+.mu-docs { margin-top: 2.4rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; }
+.mu-doc {
+  position: relative; display: block; padding: 1rem 2.2rem 1rem 1.1rem;
+  background: var(--ink-2); border: 1px solid var(--ink-3); border-radius: 0.7rem;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.mu-doc:hover { border-color: var(--brand-3); transform: translateY(-2px); }
+.mu-doc b { display: block; color: var(--snow); font-size: 0.85rem; }
+.mu-doc span { display: block; margin-top: 0.15rem; color: var(--dim); font-size: 0.74rem; line-height: 1.45; }
+.mu-doc svg { position: absolute; right: 0.9rem; top: 1.05rem; color: var(--dim); transition: color 0.15s, transform 0.15s; }
+.mu-doc:hover svg { color: var(--brand); transform: translateX(3px); }
+
+/* Closing */
+.mu-final {
+  position: relative; text-align: center; padding: 5.5rem 0 6rem;
+  background: radial-gradient(700px 360px at 50% 40%, rgba(56, 189, 248, 0.15), transparent 70%);
+  border-top: 1px solid rgba(56, 189, 248, 0.07);
+}
+.mu-final .mu-grid {
+  mask-image: radial-gradient(ellipse 60% 70% at 50% 45%, #000 15%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 45%, #000 15%, transparent 70%);
+}
+.mu-final__logo { width: 4rem; height: 4rem; margin-bottom: 1rem; animation: mu-float 6s ease-in-out infinite; }
+
+@keyframes mu-float { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-6px) rotate(3deg); } }
+@keyframes mu-blink { 50% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mu-hero__logo, .mu-final__logo, .mu-caret { animation: none; }
+  .mu-card, .mu-btn, .mu-doc { transition: none; }
+}
+
+@media (max-width: 60em) {
+  .mu-hero__inner, .mu-split { grid-template-columns: minmax(0, 1fr); }
+  .mu-features, .mu-cmds, .mu-kinds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mu-docs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 40em) {
+  .mu-hero { padding-top: 2.5rem; }
+  .mu-code code { font-size: 0.66rem; }
+  /* Steps: number inline with the heading, code at full width. */
+  .mu-steps li { padding-left: 0; }
+  .mu-steps li::before { top: -0.15rem; width: 1.5rem; height: 1.5rem; font-size: 0.7rem; }
+  .mu-steps li:not(:last-child)::after { display: none; }
+  .mu-steps h4 { padding-left: 2.2rem; min-height: 1.5rem; }
+  /* The install command is one long path: let it wrap at any character. */
+  .mu-install { align-items: flex-start; }
+  .mu .mu-install code { white-space: normal; overflow-wrap: anywhere; line-height: 1.6; padding-top: 0.2rem; }
+  .mu-term__body { min-height: 0; padding: 0.85rem 0.9rem 1rem; line-height: 1.75; }
+  /* The diagram is too dense to read at phone width: say it can be opened. */
+  .mu-figure { border-radius: 0.6rem; }
+  .mu-figure figcaption { display: block; padding: 0.5rem 0.8rem; font-size: 0.68rem; color: var(--dim); text-align: center; background: var(--ink-2); border-top: 1px solid var(--ink-3); }
+  .mu-kind, .mu-card { padding: 1.1rem; }
+  .mu-layer { transform: none; margin: 0 !important; }
+  .mu-features, .mu-cmds, .mu-docs, .mu-kinds { grid-template-columns: minmax(0, 1fr); }
+  .mu-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mu-section { padding: 3.5rem 0; }
+  .mu-term__body { font-size: 0.6rem; }
+}

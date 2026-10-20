@@ -1,0 +1,303 @@
+{#- The landing page. Everything renders in the tabs block, outside Material's
+    content grid, so sections can run edge to edge. -#}
+{% extends "main.html" %}
+
+{% set gh = "https://github.com/rossedman/muscles" %}
+{% set install = "go install github.com/rossedman/muscles/cmd/muscles@latest" %}
+
+{% block tabs %}
+{{ super() }}
+<div class="mu">
+
+  <!-- Hero -->
+  <section class="mu-hero">
+    <div class="mu-grid" aria-hidden="true"></div>
+    <div class="mu-wrap mu-hero__inner">
+      <div>
+        <img class="mu-hero__logo" src="{{ 'assets/site/logo.svg' | url }}" alt="">
+        <h1 class="mu-title">muscles</h1>
+        <p class="mu-tagline">Explain container images, <b>layer by layer.</b><br>Find the waste. Gate it in CI.</p>
+        <div class="mu-install">
+          <span class="mu-install__prompt">$</span>
+          <code>{{ install }}</code>
+          <button class="mu-copy" data-copy="{{ install }}" aria-label="Copy install command">
+            {% include ".icons/material/content-copy.svg" %}
+          </button>
+        </div>
+        <div class="mu-cta">
+          <a class="mu-btn mu-btn--primary" href="{{ 'getting-started/' | url }}">Get started {% include ".icons/material/arrow-right.svg" %}</a>
+          <a class="mu-btn" href="{{ 'ci/' | url }}">{% include ".icons/material/check-decagram-outline.svg" %} Use it in CI</a>
+        </div>
+      </div>
+
+      <div class="mu-term" aria-label="A terminal running muscles">
+        <div class="mu-term__bar"><i></i><i></i><i></i><span>~ zsh</span></div>
+        <div class="mu-term__body" data-typing>
+          <div><span class="p">$</span> <span class="c" data-type>muscles layers list app:dev</span></div>
+          <div><span class="d">#   SIZE    +   ~    ◌   -  STEP</span></div>
+          <div><span class="d">0</span>  <span class="c">74 MB</span> <span class="a">3104</span>   <span class="d">·</span>    <span class="d">·</span>   <span class="d">·</span>  <span class="c">FROM debian:bookworm-slim</span></div>
+          <div><span class="d">1</span>  <span class="c">41 MB</span>  <span class="a">220</span>   <span class="m">3</span>    <span class="d">·</span>   <span class="d">·</span>  <span class="c">RUN apt-get install</span> <span class="w">⚠</span></div>
+          <div><span class="d">3</span> <span class="c">182 MB</span> <span class="a">1204</span>  <span class="m">12</span>    <span class="d">·</span> <span class="r">310</span>  <span class="c">RUN pip install</span> <span class="w">⚠</span></div>
+          <div><span class="d">4</span>  <span class="c">96 MB</span>    <span class="d">·</span>   <span class="d">·</span>  <span class="x">412</span>   <span class="d">·</span>  <span class="c">RUN chown -R app /app</span> <span class="w">⚠</span></div>
+          <div><span class="p">$</span> <span class="c" data-type>muscles images check app.tar --baseline main</span></div>
+          <div><span class="r">✗ fail</span>  waste   <span class="c">108 MB &gt; 50 MB</span></div>
+          <div><span class="a">✓ pass</span>  growth  <span class="c">+38 MB ≤ +50 MB</span><span class="mu-caret"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="mu-wrap mu-stats">
+      <li><b>1×</b><span>each layer is read once, then cached</span></li>
+      <li><b>0</b><span>pulls: registry images are streamed</span></li>
+      <li><b>4</b><span>output formats from the same values</span></li>
+      <li><b>1</b><span>static binary, no Docker needed</span></li>
+    </ul>
+  </section>
+
+  <!-- The problem -->
+  <section class="mu-section" id="layers">
+    <div class="mu-wrap mu-split">
+      <div>
+        <p class="mu-eyebrow">The problem</p>
+        <h2>Every image is a stack of diffs.<br><span>Nobody reads them.</span></h2>
+        <p class="mu-lede"><code>docker history</code> gives you commands and sizes. What each layer actually put on disk, and what it left behind, takes an export, a pile of tarballs and an afternoon.</p>
+        <p class="mu-lede">muscles replays the layers over a merged filesystem and tells you, per layer, what changed, where the bytes went, and what's worth fixing.</p>
+        <ul class="mu-points">
+          <li>{% include ".icons/material/layers-triple-outline.svg" %} Each layer next to the Dockerfile step that made it</li>
+          <li>{% include ".icons/material/alert-outline.svg" %} Notes for caches left behind and deletions that free nothing</li>
+          <li>{% include ".icons/material/compare-horizontal.svg" %} What changed between two releases, file by file</li>
+        </ul>
+        <div class="mu-cta">
+          <a class="mu-btn mu-btn--primary" href="{{ 'layers/' | url }}">Reading layers {% include ".icons/material/arrow-right.svg" %}</a>
+          <a class="mu-btn" href="{{ 'waste/' | url }}">{% include ".icons/material/delete-sweep-outline.svg" %} Finding waste</a>
+        </div>
+      </div>
+      <div class="mu-layers" aria-label="Four layers of an image, as muscles sees them">
+        <div class="mu-layer">
+          <span class="mu-layer__i">0</span><span class="mu-layer__size">74 MB</span><span class="mu-layer__step">FROM debian:bookworm-slim</span>
+          <span class="mu-bar"><i class="a" style="width:100%"></i></span>
+        </div>
+        <div class="mu-layer mu-layer--warn">
+          <span class="mu-layer__i">1</span><span class="mu-layer__size">41 MB</span><span class="mu-layer__step">RUN apt-get install -y curl git</span>
+          <span class="mu-bar"><i class="a" style="width:92%"></i><i class="m" style="width:8%"></i></span>
+          <span class="mu-layer__note w">⚠ apt lists left behind: 12 MB</span>
+        </div>
+        <div class="mu-layer mu-layer--warn">
+          <span class="mu-layer__i">3</span><span class="mu-layer__size">182 MB</span><span class="mu-layer__step">RUN pip install -r requirements.txt</span>
+          <span class="mu-bar"><i class="a" style="width:80%"></i><i class="m" style="width:6%"></i><i class="r" style="width:14%"></i></span>
+          <span class="mu-layer__note w">⚠ deletes 12 MB that L1 still stores</span>
+        </div>
+        <div class="mu-layer mu-layer--warn">
+          <span class="mu-layer__i">4</span><span class="mu-layer__size">96 MB</span><span class="mu-layer__step">RUN chown -R app /app</span>
+          <span class="mu-bar"><i class="x" style="width:100%"></i></span>
+          <span class="mu-layer__note w">⚠ 96 MB permission-only rewrite</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Change types -->
+  <section class="mu-section mu-section--alt" id="changes">
+    <div class="mu-wrap">
+      <p class="mu-eyebrow">Four kinds of change</p>
+      <h2>Every path, classified.<br><span>Every hidden byte, accounted for.</span></h2>
+      <p class="mu-lede mu-lede--center">Each entry in a layer is compared with the filesystem below it. Waste is every byte a layer stores that a later layer hides, with both layers named.</p>
+      <div class="mu-kinds">
+        <article class="mu-kind mu-kind--a"><h3><b>+</b>Added</h3><p>The path didn't exist in any lower layer.</p></article>
+        <article class="mu-kind mu-kind--m"><h3><b>~</b>Modified</h3><p>The path existed below with different contents. The old copy is still stored: waste.</p></article>
+        <article class="mu-kind mu-kind--x"><h3><b>◌</b>Rewritten</h3><p>The same contents stored again, only permissions or owner changed. The classic <code>chown -R</code> tax.</p></article>
+        <article class="mu-kind mu-kind--r"><h3><b>-</b>Deleted</h3><p>A whiteout hid the path. The bytes are still in the layer that stored them.</p></article>
+      </div>
+      <p class="mu-center"><a class="mu-link" href="{{ 'how-it-works/' | url }}">How classification works {% include ".icons/material/arrow-right.svg" %}</a></p>
+    </div>
+  </section>
+
+  <!-- CI -->
+  <section class="mu-section" id="ci">
+    <div class="mu-wrap mu-split">
+      <div>
+        <p class="mu-eyebrow">In CI</p>
+        <h2>Budgets in a file.<br><span>A red build when they break.</span></h2>
+        <p class="mu-lede">Commit a <code>.muscles.yaml</code> next to your Dockerfile. <code>muscles images check</code> exits 5 when the image is too big, wastes too much, grew too fast against the main branch, or ships a path you forbid, like <code>**/.env</code>.</p>
+        <ul class="mu-points">
+          <li>{% include ".icons/material/docker.svg" %} No Docker socket needed: reads tarballs, OCI layouts and registries</li>
+          <li>{% include ".icons/material/github.svg" %} GitHub annotations and Markdown for the job summary</li>
+          <li>{% include ".icons/material/code-json.svg" %} Stable JSON with a versioned schema</li>
+        </ul>
+        <a class="mu-btn" href="{{ 'ci/' | url }}">{% include ".icons/material/book-open-page-variant-outline.svg" %} The CI guide</a>
+      </div>
+      <div class="mu-stack">
+        <pre class="mu-check"><span class="d"># .muscles.yaml</span>
+<span class="c">check:</span>
+  <span class="c">max_size:</span> 800MB
+  <span class="c">max_waste:</span> 50MB
+  <span class="c">max_growth:</span> 5%
+  <span class="c">forbid:</span> ["**/.env", "**/.git/"]</pre>
+        <pre class="mu-check"><span class="d">$</span> <span class="c">muscles images check app.tar --baseline ghcr.io/acme/app:main</span>
+<span class="a">✓ pass</span>  size       <span class="c">401 MB ≤ 800 MB</span>
+<span class="r">✗ fail</span>  waste      <span class="c">108 MB &gt; 50 MB</span>  <span class="d">/app/: chown -R in L4</span>
+<span class="a">✓ pass</span>  growth     <span class="c">+38 MB ≤ +40 MB vs ghcr.io/acme/app:main</span>
+<span class="r">✗ fail</span>  forbid     <span class="c">/app/.env matches "**/.env"</span>  <span class="d">added in L5 COPY . .</span>
+<span class="m">⚠ warn</span>  package cache  <span class="c">apt lists left behind: 12 MB</span>
+
+<span class="c">2 failed, 1 warning</span>                        <span class="d">exit 5</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="mu-section mu-section--alt">
+    <div class="mu-wrap">
+      <p class="mu-eyebrow">Why muscles</p>
+      <h2>Small, fast, honest.<br><span>Built for people and pipelines.</span></h2>
+      <div class="mu-features">
+        <article class="mu-card">
+          <div class="mu-card__icon">{% include ".icons/material/cloud-download-outline.svg" %}</div>
+          <h3>Registry images without pulling</h3>
+          <p>Layers stream straight from the registry and are read once. Auth comes from your Docker config and credential helpers, never from flags.</p>
+        </article>
+        <article class="mu-card">
+          <div class="mu-card__icon">{% include ".icons/material/lightning-bolt.svg" %}</div>
+          <h3>A cache that never goes stale</h3>
+          <p>Layer indexes are keyed by content digest. A base image is read once and every image built on it opens instantly.</p>
+        </article>
+        <article class="mu-card">
+          <div class="mu-card__icon">{% include ".icons/material/compare-horizontal.svg" %}</div>
+          <h3>Release diffs</h3>
+          <p><code>muscles images diff</code> shows the layers two images share, the size of each one that differs, and every path that changed.</p>
+        </article>
+        <article class="mu-card">
+          <div class="mu-card__icon">{% include ".icons/material/console.svg" %}</div>
+          <h3>Follows CLI Style</h3>
+          <p>Noun-verb commands, typed streams, documented exit codes, <code>--json</code> everywhere, real examples in every help page, and <code>help --json</code> for agents.</p>
+        </article>
+        <article class="mu-card">
+          <div class="mu-card__icon">{% include ".icons/material/shield-lock-outline.svg" %}</div>
+          <h3>Nothing leaves your machine</h3>
+          <p>No telemetry. The only network calls are reads from the registries you name.</p>
+        </article>
+        <article class="mu-card">
+          <div class="mu-card__icon">{% include ".icons/material/package-variant-closed.svg" %}</div>
+          <h3>One static binary</h3>
+          <p>No cgo, no runtime, no Docker. Released for macOS, Linux and Windows with completions and a man page.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick start -->
+  <section class="mu-section" id="quick-start">
+    <div class="mu-wrap mu-split">
+      <div>
+        <p class="mu-eyebrow">Quick start</p>
+        <h2>From an image to an answer<br><span>in three commands.</span></h2>
+        <p class="mu-lede">Point muscles at anything that holds an image: a local tag, a registry reference, a tarball or an OCI directory. No config file needed.</p>
+        <a class="mu-btn" href="{{ 'getting-started/' | url }}">{% include ".icons/material/book-open-page-variant-outline.svg" %} Full getting-started guide</a>
+      </div>
+      <ol class="mu-steps">
+        <li>
+          <h4>Install</h4>
+          <pre class="mu-code"><button class="mu-copy" aria-label="Copy">{% include ".icons/material/content-copy.svg" %}</button><code><span class="p">$</span> brew install rossedman/tap/muscles</code></pre>
+        </li>
+        <li>
+          <h4>See what each layer did</h4>
+          <pre class="mu-code"><button class="mu-copy" aria-label="Copy">{% include ".icons/material/content-copy.svg" %}</button><code><span class="p">$</span> muscles layers list python:3.12-slim</code></pre>
+        </li>
+        <li>
+          <h4>Open the layer that surprised you</h4>
+          <pre class="mu-code"><button class="mu-copy" aria-label="Copy">{% include ".icons/material/content-copy.svg" %}</button><code><span class="p">$</span> muscles changes list python:3.12-slim --layer 2
+<span class="p">$</span> muscles waste list python:3.12-slim</code></pre>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="mu-section mu-section--alt">
+    <div class="mu-wrap">
+      <p class="mu-eyebrow">How it works</p>
+      <h2>Read each layer once.<br><span>Replay them. Explain what you find.</span></h2>
+      <figure class="mu-figure">
+        <a href="{{ 'assets/how-it-works.png' | url }}"><img width="2560" height="1440" src="{{ 'assets/how-it-works.png' | url }}" alt="Images from the Docker daemon, a registry, a tarball or an OCI layout are opened, indexed once per layer into a cache keyed by diffID, and analyzed into added, modified, rewritten and deleted paths with waste attributed. Five commands render the result." loading="lazy"></a>
+        <figcaption>Tap to open the full-size diagram</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- Commands -->
+  <section class="mu-section">
+    <div class="mu-wrap">
+      <p class="mu-eyebrow">Commands</p>
+      <h2>A small CLI that<br><span>reads like a sentence.</span></h2>
+      <p class="mu-lede mu-lede--center">Every command has examples in its help, <code>--json</code> for scripts, and errors that say what to run next.</p>
+      <div class="mu-cmds">
+        <div class="mu-cmdgroup">
+          <h3>Explain an image</h3>
+          <dl>
+            <dt>layers list</dt><dd>Size, changes, step and notes per layer</dd>
+            <dt>changes list</dt><dd>The paths a layer added, changed or deleted</dd>
+            <dt>waste list</dt><dd>Hidden bytes and the layers responsible</dd>
+          </dl>
+        </div>
+        <div class="mu-cmdgroup">
+          <h3>Compare and gate</h3>
+          <dl>
+            <dt>images diff</dt><dd>What changed from one image to another</dd>
+            <dt>images check</dt><dd>Budgets and forbidden paths, for CI</dd>
+          </dl>
+        </div>
+        <div class="mu-cmdgroup">
+          <h3>Settings and more</h3>
+          <dl>
+            <dt>config list</dt><dd>Every setting and where it came from</dd>
+            <dt>cache list</dt><dd>Cached layer indexes</dd>
+            <dt>help --json</dt><dd>The command tree, for agents</dd>
+          </dl>
+        </div>
+      </div>
+      <p class="mu-center"><a class="mu-link" href="{{ 'cli/' | url }}">Full CLI reference {% include ".icons/material/arrow-right.svg" %}</a></p>
+    </div>
+  </section>
+
+  <!-- Docs -->
+  <section class="mu-section mu-section--alt">
+    <div class="mu-wrap">
+      <p class="mu-eyebrow">Documentation</p>
+      <h2>Go deeper.</h2>
+      <div class="mu-docs">
+        {% for path, name, blurb in [
+          ("getting-started/", "Getting started", "Install and your first image"),
+          ("layers/", "Reading layers", "Layers, changes and notes"),
+          ("waste/", "Finding waste", "Where hidden bytes come from"),
+          ("ci/", "CI", "GitHub Actions and other pipelines"),
+          ("checks/", "Checks", "Budgets and forbidden paths"),
+          ("cli/", "CLI reference", "Commands, flags, exit codes"),
+          ("configuration/", "Configuration", "Precedence, files, settings"),
+          ("output/", "Output formats", "Table, plain, JSON, Markdown"),
+        ] %}
+        <a class="mu-doc" href="{{ path | url }}">
+          <b>{{ name }}</b><span>{{ blurb }}</span>
+          {% include ".icons/material/arrow-right.svg" %}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Closing call to action -->
+  <section class="mu-final">
+    <div class="mu-grid" aria-hidden="true"></div>
+    <div class="mu-wrap">
+      <img class="mu-final__logo" src="{{ 'assets/site/logo.svg' | url }}" alt="">
+      <h2>Know what's in your images.</h2>
+      <p class="mu-lede mu-lede--center">Free and open source under the MIT license.</p>
+      <div class="mu-cta mu-cta--center">
+        <a class="mu-btn mu-btn--primary" href="{{ 'getting-started/' | url }}">Get started {% include ".icons/material/arrow-right.svg" %}</a>
+        <a class="mu-btn" href="{{ gh }}">{% include ".icons/material/source-repository.svg" %} View on GitHub</a>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block content %}{% endblock %}
