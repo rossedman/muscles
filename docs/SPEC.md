@@ -1,389 +1,474 @@
 # muscles — Specification
 
-> A terminal UI for exploring container image layers and seeing exactly
-> **what changed in each one**.
+> A CLI that explains container images: what each layer changed, where the
+> wasted space is, and what changed between two versions. It works the same on
+> your laptop and in CI.
 
 | | |
 |---|---|
-| **Status** | Draft v0.2 (replaces the v0.1 "engineering life" spec) |
+| **Status** | Draft v0.3 (CLI only; replaces the v0.2 TUI spec) |
 | **Author** | Ross Edman |
 | **Last updated** | 2026-10-20 |
 | **Language** | Go (1.23+) |
-| **Libraries** | Cobra, Viper, Bubble Tea, Bubbles, Lip Gloss, go-containerregistry |
+| **Libraries** | Cobra, Viper, go-containerregistry, Lip Gloss (table styling only) |
 
 ---
 
 ## 1. Problem
 
-A container image is a stack of filesystem diffs, but the tools for looking at
-it show you very little. `docker history` gives you a list of commands and
-sizes. To learn which files a layer actually added, changed or deleted, you
-have to export the image, untar every layer and diff them by hand.
+A container image is a stack of filesystem diffs, but the usual tools barely
+show them. `docker history` lists commands and sizes. To see which files a
+layer added, changed or deleted, you export the image and diff the tarballs by
+hand. In CI it's worse: images grow release after release and nobody notices
+until pulls get slow.
 
-That leaves everyday questions hard to answer:
+Questions that should take seconds to answer:
 
-- Why is this image 1.4 GB? Which layer, and which files?
+- Why is this image 1.4 GB? Which layer, which files?
 - What did `RUN apt-get install ...` actually put on disk?
-- Did my cleanup step really delete the cache, or is it still in an earlier
-  layer?
-- Why did `chown -R` double the size of my app directory?
-- What changed between `myapp:1.8.0` and `myapp:1.9.0`?
+- Did my cleanup step actually free space, or does an earlier layer still hold
+  those bytes?
+- What did this pull request change in the image?
+- Did this pull request make the image bigger than we allow?
 
 ## 2. Goals
 
-1. **Per-layer changes.** For any layer, show the files it **added**,
-   **modified** and **deleted**, with sizes, next to the Dockerfile
-   instruction that created it.
-2. **A plain summary of each layer.** One line saying what the layer did, e.g.
-   *"+1,204 files, 182 MB, mostly /usr/lib/python3.12; deleted
-   /var/lib/apt/lists (12 MB still stored in layer 3)"*.
-3. **Find waste.** Point out bytes that are stored but not visible in the final
-   image: files that were overwritten or deleted later, and files that were
-   copied again only because their permissions or owner changed.
-4. **Compare two images.** Show which layers they share and what differs in
-   the final filesystem, so you can see what a release changed.
-5. **Fast and works anywhere.** Read images from the local Docker daemon, a
-   registry (without pulling), a `docker save` tarball or an OCI layout
-   directory. Re-opening an image you've already explored is instant.
-6. **Scriptable.** Every view has a non-interactive command with `--json`
-   output.
+1. **Explain each layer.** Files added, modified, permission-only rewrites and
+   deletions, with sizes, next to the Dockerfile step that created the layer,
+   plus a one-line summary.
+2. **Find waste.** Bytes stored in the image that aren't visible in its final
+   filesystem.
+3. **Compare two images.** Shared layers, where they split, and a file-level
+   diff of the final filesystems.
+4. **Gate CI.** Fail a build when the image breaks a size, waste or growth
+   budget, or contains a forbidden path.
+5. **Same tool, both places.** Readable tables in a terminal; stable JSON and
+   Markdown for CI, scripts and pull request comments.
+6. **Works without Docker.** Reads from a registry, a tarball or an OCI
+   directory as well as the local daemon, so CI runners don't need a Docker
+   socket.
 
 ## 3. Non-goals
 
-- Building, editing or pushing images.
-- Vulnerability scanning (use Trivy or Grype).
-- Running containers or inspecting running containers.
-- Windows container images (Linux images only in v1).
+- An interactive TUI. [dive](https://github.com/wagoodman/dive) covers
+  interactive browsing; a small `explore` command may come later (§13).
+- Building, pushing or modifying images. Generic registry tasks (copy, tag,
+  inspect manifests) are left to [crane](https://github.com/google/go-containerregistry/tree/main/cmd/crane)
+  and skopeo.
+- Vulnerability scanning (Trivy, Grype).
+- Windows container images.
 
-## 4. Prior art
+## 4. Scenarios
 
-[dive](https://github.com/wagoodman/dive) is the closest existing tool. It
-shows a file tree per layer and an image "efficiency" score. `muscles` should
-not just be a rewrite of dive. It differs in these ways:
+| # | Where | Scenario | Command |
+|---|-------|----------|---------|
+| S1 | Local | "Why is this image so big?" | `muscles layers app:dev` then `muscles waste app:dev` |
+| S2 | Local | "What did layer 4 install?" | `muscles changes app:dev -l 4` |
+| S3 | Local | "What changed since the last release?" | `muscles diff ghcr.io/acme/app:1.8.0 app:dev` |
+| S4 | CI | "Fail the PR if the image breaks our budget." | `muscles check app.tar --baseline ghcr.io/acme/app:main` |
+| S5 | CI | "Show reviewers what this PR changed in the image." | `muscles diff ghcr.io/acme/app:main app.tar -o markdown >> "$GITHUB_STEP_SUMMARY"` |
+| S6 | CI | "Never ship secrets or a `.git` directory." | `forbid:` rules in `.muscles.yaml`, enforced by `muscles check` |
 
-| | dive | muscles |
-|---|---|---|
-| Per-layer file tree | ✓ | ✓ |
-| Plain-language summary per layer | — | ✓ |
-| Open a registry image without pulling it | — | ✓ |
-| Detect metadata-only rewrites (`chmod`/`chown` copies) | — | ✓ |
-| Show a file's previous version and a text diff | — | ✓ |
-| Compare two images | — | ✓ |
-| JSON output for every view | partial | ✓ |
-| Cache of parsed layers by digest | — | ✓ |
+## 5. Commands
 
-## 5. Core scenarios
+Every command takes an image reference (§6) and supports
+`-o table|json|markdown`.
 
-| # | Scenario | What `muscles` does |
-|---|----------|---------------------|
-| S1 | "Why is this image so big?" | `muscles myapp:latest` opens with layers sorted top-down, sizes, and a **Waste** figure. One key jumps to the biggest wasted files and the layers responsible. |
-| S2 | "What did this RUN step install?" | Select the layer: the right pane shows only that layer's changes as a tree, with the summary line above it. |
-| S3 | "Did my cleanup work?" | Deleted paths show in red with a note saying which earlier layer still holds the bytes. |
-| S4 | "What changed in this release?" | `muscles diff myapp:1.8.0 myapp:1.9.0` shows shared base layers, the layer where they diverge, and a file-level diff of the final filesystems. |
-| S5 | "Fail CI if the image regresses." | `muscles check myapp:sha --max-waste 50MB --max-size 800MB` exits non-zero with a short report. (v1.1) |
+### 5.1 `muscles layers <image>`
 
-## 6. How it works
-
-### 6.1 Reading images
-
-Use [`go-containerregistry`](https://github.com/google/go-containerregistry)
-(`ggcr`). It gives one `v1.Image` interface over every source:
-
-| Source | Reference form | ggcr package |
-|--------|----------------|--------------|
-| Docker / Podman daemon | `myapp:latest` (default when the image exists locally) | `pkg/v1/daemon` |
-| Registry | `registry://ghcr.io/org/app:tag`, or any reference not found locally | `pkg/v1/remote` |
-| `docker save` tarball | `tar://./app.tar` or a path ending in `.tar` | `pkg/v1/tarball` |
-| OCI layout directory | `oci://./layout[:tag]` | `pkg/v1/layout` |
-
-- `--source docker|remote|tar|oci` forces a source; otherwise it's detected.
-- Registry auth reuses `~/.docker/config.json` and credential helpers
-  (`authn.DefaultKeychain`).
-- Multi-platform images: pick the platform matching the host by default;
-  `--platform linux/arm64` overrides it, and the TUI lists the others.
-- Remote layers stream one at a time and are never written to disk in full.
-
-### 6.2 Building the change index
-
-Each layer is a tar stream. `muscles` reads every layer **once**, in order,
-and records one entry per tar header:
-
-```go
-type Entry struct {
-    Path     string
-    Type     EntryType   // file, dir, symlink, hardlink, other
-    Size     int64
-    Mode     fs.FileMode
-    UID, GID int
-    LinkName string
-    Hash     uint64      // xxhash of contents, for regular files
-}
-```
-
-Changes are classified against the filesystem built from all lower layers:
-
-| Change | Rule |
-|--------|------|
-| **Added** | The path doesn't exist in the lower filesystem. |
-| **Modified** | The path exists below and the content hash or type differs. |
-| **Metadata only** | The path exists below with the same content; only mode, owner or mtime differ. The full file is still stored again, so this counts as waste. |
-| **Deleted** | A whiteout `.wh.<name>` removes `<name>`; an opaque whiteout `.wh..wh..opq` removes everything below that directory from lower layers. |
-
-Layer size is the uncompressed size of its entries. The compressed size from
-the manifest is shown too, because that's what you pull.
-
-**Waste** is the total size of bytes stored in a layer that don't appear in
-the final image, because a later layer modified, deleted or metadata-rewrote
-them. Each wasted byte is attributed to both the layer that stored it and the
-layer that hid it.
-
-### 6.3 Mapping layers to Dockerfile steps
-
-The image config's `history` array lists every build step. Steps with
-`empty_layer: true` (`ENV`, `LABEL`, `CMD`, …) don't produce a layer.
-`muscles` pairs the remaining history entries with layers in order, and shows
-empty steps as thin rows between layers so the full Dockerfile sequence is
-visible. Commands are cleaned up for display (`/bin/sh -c #(nop)` prefixes are
-removed; BuildKit's `RUN |2 ARG=...` form is shortened).
-
-### 6.4 Layer summary
-
-Each layer gets a one-line summary, built by rules (not an LLM):
-
-1. Counts and bytes for added, modified, metadata-only and deleted.
-2. The 1–3 directories holding most of the changed bytes (rolled up to a
-   useful depth, e.g. `/usr/lib/python3.12`, not `/usr`).
-3. Notable patterns, each a small detector:
-   - package manager caches left behind (`/var/lib/apt/lists`,
-     `/var/cache/apk`, `~/.cache/pip`, `~/.npm`)
-   - deletions of files that an earlier layer still holds
-   - metadata-only rewrites above 1 MB (typically `chown -R` / `chmod -R`)
-   - large single files (> 50 MB)
-
-### 6.5 Cache
-
-Layers are content-addressed, so a parsed layer index is valid forever.
-Indexes are stored in `$XDG_CACHE_HOME/muscles/layers/<diffID>.idx` (gob or
-msgpack, zstd-compressed). A shared base image like `debian:bookworm` is parsed
-once and reused by every image built on it. `muscles cache prune` and a size
-cap (default 2 GB, oldest first) keep it bounded.
-
-### 6.6 File contents
-
-File contents are not kept in the index. When you open a modified text file to
-diff it, `muscles` re-reads just the two layers involved and extracts the two
-versions (cached in memory for the session). Files over 1 MB, or binary files,
-show size and hash only.
-
-## 7. TUI
-
-### 7.1 Layout
+One row per layer, with empty steps (`ENV`, `LABEL`, …) shown dimmed so the
+whole Dockerfile sequence is visible.
 
 ```
-┌ muscles  myapp:1.9.0  linux/amd64  612 MB (231 MB compressed)  waste 74 MB ┐
-├─ LAYERS ─────────────────────────────┬─ CHANGES · layer 4 ─────────────────┤
-│   #  SIZE    +    ~    −  STEP       │ +1,204  ~12  −310   182 MB          │
-│   0  74 MB  3.1k  .   .  debian:book │ mostly /usr/lib/python3.12 (151 MB) │
-│   1  41 MB   .   220  .  RUN apt-get │ ⚠ /var/lib/apt/lists left: 38 MB    │
-│      ·       ENV PYTHONUNBUFFERED=1  │                                     │
-│   2  12 KB   3   .   .  WORKDIR /app │ ▾ usr/                              │
-│ ▸ 4  182 MB 1.2k 12 310 RUN pip ins… │   ▾ lib/python3.12/site-packages/   │
-│   5  96 MB   .  .  .  RUN chown -R…⚠ │     + numpy/            38 MB       │
-│   6  8 MB   41   9   .  COPY . .     │     + pandas/           61 MB       │
-│                                      │     ~ six.py            34 KB       │
-├──────────────────────────────────────┤ ▾ var/lib/apt/lists/                │
-│ RUN pip install -r requirements.txt  │     − *_Packages (310)   (in L1)    │
-│ created 2026-10-18 14:02  sha256:9f… │                                     │
-├──────────────────────────────────────┴─────────────────────────────────────┤
-│ tab pane  ↑/↓ move  space fold  c changes/full  w waste  / find  ? help  q │
-└────────────────────────────────────────────────────────────────────────────┘
+$ muscles layers app:dev
+#  SIZE     +      ~    ◌    −    STEP                                NOTE
+0  74 MB   3,104   0    0    0    debian:bookworm-slim
+1  41 MB     220   3    0    0    RUN apt-get install -y curl git     ⚠ apt lists left behind: 12 MB
+   ·                               ENV PYTHONUNBUFFERED=1
+2  12 KB       3   0    0    0    WORKDIR /app
+3  182 MB  1,204  12    0  310    RUN pip install -r requirements     mostly site-packages (151 MB)
+4  96 MB       0   0  412    0    RUN chown -R app /app               ⚠ 96 MB permission-only rewrite
+5  8 MB       41   9    0    0    COPY . .
+
+total 401 MB uncompressed · 138 MB compressed · waste 108 MB (27%)
 ```
 
-- **Header:** image reference, platform, total size (uncompressed and
-  compressed), total waste.
-- **Layers pane:** one row per layer, empty steps as dim rows between them, ⚠
-  on layers with a detected issue. Below it, the full step command and layer
-  digest for the selection.
-- **Changes pane:** the selected layer's summary, then a collapsible tree.
-  Markers and colours: `+` added (green), `~` modified (yellow), `◌` metadata
-  only (magenta), `−` deleted (red). Colour is never the only signal.
-- **Footer:** context-sensitive key help.
+Columns: `+` added, `~` modified, `◌` permission/owner-only, `−` deleted.
 
-### 7.2 Modes of the right pane
+### 5.2 `muscles changes <image> [-l N] [--type added,modified,meta,deleted] [--path PREFIX] [--min-size SIZE]`
 
-| Mode | Key | Shows |
-|------|-----|-------|
-| **Changes** (default) | `c` | Only the paths the selected layer touched. |
-| **Filesystem** | `c` | The full merged filesystem as of the selected layer, with that layer's changes highlighted. |
-| **Waste** | `w` | Every wasted path in the image, biggest first, with the layer that stored it and the layer that hid it. |
-
-### 7.3 File detail
-
-`enter` on a file opens a detail panel: type, size, mode, owner, hash, the
-layer that introduced the current version, and its **history across layers**
-(e.g. *added in L1 · modified in L4 · chmod in L5*). For modified text files
-under 1 MB, `d` shows a unified diff against the previous version.
-
-### 7.4 Key bindings
-
-| Key | Action |
-|-----|--------|
-| `tab` | Switch pane |
-| `j`/`k`, `↑`/`↓` | Move |
-| `space`, `h`/`l` | Collapse / expand directory |
-| `enter` | File detail |
-| `d` | Diff file against previous version |
-| `c` | Toggle Changes / Filesystem |
-| `w` | Waste view |
-| `/` | Find path (fuzzy) |
-| `f` | Filter: added, modified, metadata, deleted (toggles) |
-| `s` | Sort tree: name / size |
-| `y` | Copy path |
-| `p` | Choose platform (multi-platform images) |
-| `?` | Help |
-| `q`, `ctrl+c` | Quit |
-
-### 7.5 Behaviour
-
-- **Progressive loading.** The UI opens as soon as the manifest and config are
-  read. Layers fill in as they're indexed, each with a spinner, so you can
-  start browsing the base layers while the top ones load.
-- Handles trees with 100k+ entries smoothly: only visible rows are rendered.
-- Minimum terminal size 80×24; panes stack vertically below 100 columns.
-- Works with `NO_COLOR`.
-
-### 7.6 Compare view (`muscles diff A B`)
+List the paths a layer changed (all layers if `-l` is omitted), biggest first.
 
 ```
-┌ myapp:1.8.0 → myapp:1.9.0      +38 MB     shared: 3 of 7 layers ──────────┐
-├─ LAYERS ─────────────────────────────┬─ FINAL FILESYSTEM DIFF ────────────┤
-│ = 0  debian:bookworm       74 MB     │ ▾ app/                             │
-│ = 1  RUN apt-get install   41 MB     │   ~ main.py          +2 KB         │
-│ = 2  WORKDIR /app          12 KB     │   + api/retry.py      4 KB         │
-│ ≠ 3  RUN pip install  140→182 MB     │ ▾ usr/lib/python3.12/site-packages │
-│ ≠ 4  COPY . .           8→ 8 MB      │   + pandas/          61 MB         │
-│                                      │   − simplejson/       1 MB         │
-└──────────────────────────────────────┴────────────────────────────────────┘
+$ muscles changes app:dev -l 3 --min-size 5MB
+TYPE  SIZE    PATH                                                  NOTE
++     61 MB   /usr/local/lib/python3.12/site-packages/pandas/
++     38 MB   /usr/local/lib/python3.12/site-packages/numpy/
+~     7 MB    /usr/local/lib/python3.12/site-packages/six.py        was 6 MB (L1)
+−     12 MB   /var/lib/apt/lists/                                   bytes still in L1
 ```
 
-Layers are shared when their digests match, from the bottom up. The right pane
-diffs the two final filesystems, with the same markers and file detail as the
-single-image view.
+Directories are rolled up by default; `--files` lists individual files.
 
-## 8. CLI (Cobra)
+### 5.3 `muscles waste <image> [--top 20]`
+
+Bytes stored in the image that the final filesystem doesn't show, biggest
+first, with the layer that stored them and the layer that hid them.
+
+```
+$ muscles waste app:dev
+SIZE    PATH                 STORED IN                    HIDDEN BY
+96 MB   /app/                L5 COPY . .  (→ also L4)     L4 RUN chown -R app /app (permission-only)
+12 MB   /var/lib/apt/lists/  L1 RUN apt-get install       L3 RUN rm -rf /var/lib/apt/lists
+total waste 108 MB (27% of uncompressed size)
+```
+
+### 5.4 `muscles diff <base> <target> [--files]`
+
+Compare two images.
+
+```
+$ muscles diff ghcr.io/acme/app:1.8.0 app:dev
+app:1.8.0 → app:dev    401 MB (+38 MB, +10.5%)   compressed 138 MB (+11 MB)
+
+LAYERS (3 of 6 shared)
+=  0  debian:bookworm-slim                 74 MB
+=  1  RUN apt-get install -y curl git      41 MB
+=  2  WORKDIR /app                         12 KB
+≠  3  RUN pip install -r requirements      140 MB → 182 MB  (+42 MB)
+≠  4  RUN chown -R app /app                 96 MB →  96 MB
+≠  5  COPY . .                              12 MB →   8 MB  (−4 MB)
+
+FILESYSTEM (final image)
++  61 MB   /usr/local/lib/python3.12/site-packages/pandas/
+−   1 MB   /usr/local/lib/python3.12/site-packages/simplejson/
+~  +2 KB   /app/main.py
++   4 KB   /app/api/retry.py
+... 37 more changes (use --files for all)
+```
+
+Layers count as shared when their digests match, from the bottom up.
+
+### 5.5 `muscles check <image> [--baseline <image>] [--config .muscles.yaml]`
+
+Evaluate budgets and rules, print a report and exit non-zero if any rule fails.
+
+```
+$ muscles check app.tar --baseline ghcr.io/acme/app:main
+✓ size            401 MB ≤ 800 MB
+✓ compressed      138 MB ≤ 300 MB
+✗ waste           108 MB > 50 MB         biggest: /app/ (96 MB, permission-only rewrite in L4)
+✓ growth          +38 MB ≤ +50 MB vs ghcr.io/acme/app:main
+✗ forbid          /app/.env matched "**/.env"      (added in L5 COPY . .)
+⚠ large file      /app/models/base.onnx 210 MB (warning only)
+
+2 failed, 1 warning
+```
+
+Budgets come from `.muscles.yaml` (§8); any of them can be overridden with
+flags (`--max-size`, `--max-compressed`, `--max-waste`, `--max-growth`).
+Without a baseline the growth rule is skipped, with a note saying so.
+
+When `GITHUB_ACTIONS=true`, `check` also prints `::error` and `::warning`
+workflow annotations so failures show up directly on the run.
+
+### 5.6 Other commands
 
 | Command | Description |
 |---------|-------------|
-| `muscles <image>` | Open the TUI. |
-| `muscles layers <image>` | Table of layers: index, sizes, change counts, waste, step, summary. |
-| `muscles changes <image> [--layer N] [--type added,modified,deleted,meta]` | List the changes in one layer (default: all layers). |
-| `muscles waste <image> [--top 20]` | Wasted paths, biggest first. |
-| `muscles diff <imageA> <imageB> [--tui]` | Compare two images; TUI by default on a TTY. |
-| `muscles cache [info\|prune]` | Manage the layer index cache. |
-| `muscles completion`, `muscles version` | Standard. |
+| `muscles cache info` / `muscles cache prune` | Show or clear the layer index cache. |
+| `muscles version` | Version, commit, build date. |
+| `muscles completion bash\|zsh\|fish` | Shell completion. |
 
-**Global flags:** `--source`, `--platform`, `-o table|json|plain`,
-`--config`, `--no-cache`, `--no-color`, `-v`.
+### 5.7 Global flags
 
-Output defaults to `table` on a TTY and `json` when piped. The JSON carries a
-`"schema": "muscles/v1"` field and stays stable across minor releases.
+| Flag | Description |
+|------|-------------|
+| `-o, --output table\|json\|markdown` | Default `table` on a TTY, `json` when piped. |
+| `--source auto\|docker\|remote\|tar\|oci` | Force an image source (§6). |
+| `--platform os/arch[/variant]` | Platform of a multi-platform image. Default: host platform. |
+| `--config PATH` | Config file (default: nearest `.muscles.yaml`, then user config). |
+| `--cache-dir PATH`, `--no-cache` | Layer cache location, or disable it. |
+| `--no-color` | Also respects `NO_COLOR`; colour is off automatically when not a TTY. |
+| `-q, --quiet` / `-v, --verbose` | Less or more logging (logs go to stderr, never mixed into stdout). |
 
-Exit codes: `0` success, `1` error, `2` usage error, `3` image not found or
-auth failed.
+### 5.8 Exit codes
 
-## 9. Configuration (Viper)
+| Code | Meaning |
+|------|---------|
+| 0 | Success (and for `check`: all rules passed; warnings allowed) |
+| 1 | `check` found at least one failing rule |
+| 2 | Usage or config error |
+| 3 | Image not found, or registry auth failed |
+| 4 | Any other runtime error |
 
-`$XDG_CONFIG_HOME/muscles/config.yaml`, overridable by `MUSCLES_*` env vars
-and flags. Everything has a sensible default; no config file is needed.
+Exit code 1 is used only for "the check failed", so CI can tell a budget
+breach from a broken pipeline.
+
+## 6. Image sources
+
+All sources go through [`go-containerregistry`](https://github.com/google/go-containerregistry),
+which exposes one `v1.Image` interface over all of them.
+
+| Source | Reference | Notes |
+|--------|-----------|-------|
+| Docker / Podman daemon | `app:dev` | Default when the image exists locally. Slower for big images because the daemon exports the whole image. |
+| Registry | `ghcr.io/acme/app:main`, or `registry://…` to force it | Streams layers without pulling or writing them to disk. Auth uses `~/.docker/config.json` and credential helpers. |
+| Tarball | `app.tar` or `tar://…` | Output of `docker save` or `docker buildx build --output type=docker,dest=app.tar`. |
+| OCI layout | `oci://./out[:tag]` | Output of `buildx --output type=oci`. |
+
+With `--source auto` (the default): an existing file path is a tarball, `oci://`
+is a layout, a reference found in the daemon is a daemon image, anything else
+is a registry reference. If no daemon is running, it goes straight to the
+registry. This is the common case in CI.
+
+## 7. How the analysis works
+
+### 7.1 Indexing layers
+
+Each layer tar is read **once**, as a stream. One entry is recorded per tar
+header: path, type, size, mode, uid/gid, link target, and an xxhash of the
+contents for regular files. Contents themselves are not kept.
+
+### 7.2 Classifying changes
+
+Each entry is compared with the filesystem built from all the layers below it:
+
+| Change | Rule |
+|--------|------|
+| **Added** `+` | Path doesn't exist below. |
+| **Modified** `~` | Path exists below; content hash or type differs. |
+| **Permission-only** `◌` | Path exists below with identical content; only mode, owner or mtime differ. The whole file is stored again, so its bytes count as waste. |
+| **Deleted** `−` | Whiteout `.wh.<name>`, or opaque whiteout `.wh..wh..opq` (removes everything from lower layers under that directory). |
+
+### 7.3 Waste
+
+Waste is every stored byte that the final filesystem doesn't show, because a
+later layer modified, deleted or permission-rewrote that path. Each wasted
+byte is attributed to the layer that stored it and the layer that hid it.
+
+### 7.4 Mapping layers to Dockerfile steps
+
+The image config's `history` lists every build step; entries with
+`empty_layer: true` produce no layer. Non-empty entries are paired with layers
+in order. Commands are tidied for display: the `/bin/sh -c #(nop)` prefix is
+removed and BuildKit's `RUN |2 A=1 B=2 …` form is shortened. If the history
+can't be paired (some build tools omit it), the STEP column shows `?` and
+everything else still works.
+
+### 7.5 Layer summaries and notes
+
+Rule-based (no LLM), so output is deterministic:
+
+- The 1–3 directories holding most of the layer's changed bytes, rolled up to
+  a useful depth (`/usr/local/lib/python3.12/site-packages`, not `/usr`).
+- Detectors that add a ⚠ note:
+  - package manager caches left behind (`/var/lib/apt/lists`, `/var/cache/apt`,
+    `/var/cache/apk`, `/root/.cache/pip`, `/root/.npm`, …)
+  - deletions that free nothing because an earlier layer still holds the bytes
+  - permission-only rewrites over 1 MB (`chown -R`, `chmod -R`)
+  - single files over 50 MB
+
+### 7.6 Cache
+
+Layers are content-addressed, so a layer's index never goes stale. Indexes are
+stored by diffID in `$XDG_CACHE_HOME/muscles/layers/` (zstd-compressed).
+A base image like `debian:bookworm-slim` is indexed once and reused for every
+image built on it. The cache is capped at 2 GB by default (oldest dropped
+first).
+
+In CI, point `--cache-dir` at a cached directory (e.g. `actions/cache`) so
+base layers aren't re-indexed on every run.
+
+## 8. Configuration
+
+Viper loads config in this order, highest priority first:
+
+1. Flags
+2. Environment variables, `MUSCLES_` prefix (`MUSCLES_CHECK_MAX_SIZE=800MB`)
+3. Project config: the nearest `.muscles.yaml`, searching up from the current
+   directory. **This is what CI uses; commit it next to the Dockerfile.**
+4. User config: `$XDG_CONFIG_HOME/muscles/config.yaml` (output preferences,
+   cache settings)
+5. Built-in defaults
+
+No config is required; without one, `check` only runs the default warnings.
 
 ```yaml
-source: auto              # auto | docker | remote | tar | oci
-platform: ""              # default: host platform
-ui:
-  theme: auto             # auto | dark | light
-  units: si               # si (MB) | iec (MiB)
-  default_pane: changes   # changes | filesystem
-  tree_sort: size
+# .muscles.yaml
+image:
+  platform: linux/amd64
+
+check:
+  max_size: 800MB          # uncompressed
+  max_compressed: 300MB    # what users pull
+  max_waste: 50MB          # or a percentage, e.g. "10%"
+  max_growth: 50MB         # vs --baseline; or a percentage, e.g. "5%"
+  max_layers: 40
+
+  forbid:                  # glob patterns that must not appear in the final image
+    - "**/.git/"
+    - "**/.env"
+    - "**/*.pem"
+    - "**/id_rsa"
+    - "**/node_modules/.cache/"
+
+  allow:                   # exceptions to forbid
+    - "/etc/ssl/certs/*.pem"
+
+  warn:                    # these produce warnings, never failures
+    large_file: 50MB
+    package_cache: true
+    permission_rewrite: 1MB
+
+output:
+  units: si                # si (MB) or iec (MiB)
+
 cache:
-  dir: ""                 # default: $XDG_CACHE_HOME/muscles
   max_size: 2GB
-detectors:
-  large_file: 50MB
-  metadata_rewrite_min: 1MB
-ignore:                   # paths hidden from trees and summaries
-  - /proc
-  - /sys
-keys: {}                  # remap any binding, e.g. { waste: W }
 ```
 
-## 10. Architecture
+Unknown keys are an error, so typos in a budget don't silently disable it.
+
+## 9. Output formats
+
+| Format | Use |
+|--------|-----|
+| `table` | Terminals. Aligned columns, colour when the output is a TTY. |
+| `json` | Scripts and tools. Includes `"schema": "muscles/v1"`; fields are only ever added within v1, never removed or renamed. Sizes are integer bytes. |
+| `markdown` | Pull request comments and `$GITHUB_STEP_SUMMARY`. Tables and a collapsible `<details>` block for long file lists. |
+
+Output is deterministic (stable sort, no timestamps in tables), so results can
+be compared between runs.
+
+## 10. CI usage
+
+### 10.1 GitHub Actions
+
+```yaml
+name: image
+on: pull_request
+
+jobs:
+  image-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image to a tarball
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          outputs: type=docker,dest=app.tar
+
+      - name: Install muscles
+        run: go install github.com/rossedman/muscles@latest
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/muscles
+          key: muscles-${{ hashFiles('Dockerfile') }}
+          restore-keys: muscles-
+
+      - name: Log in to registry for the baseline
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Report image changes
+        run: muscles diff ghcr.io/acme/app:main app.tar -o markdown >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce budgets
+        run: muscles check app.tar --baseline ghcr.io/acme/app:main
+```
+
+### 10.2 Other CI systems
+
+Nothing is GitHub-specific apart from the optional annotations. Elsewhere, run
+the same commands and use `-o json` or `-o markdown` with your CI's own report
+or comment mechanism.
+
+### 10.3 Distribution for CI
+
+- Static binaries for linux/darwin × amd64/arm64 on GitHub Releases
+  (GoReleaser), with checksums.
+- A minimal container image (`ghcr.io/rossedman/muscles`) for CI systems that
+  run steps in containers.
+- `go install` for Go users.
+
+## 11. Architecture
 
 ```
 muscles/
 ├── main.go
 ├── cmd/                  # Cobra commands; root.go binds Viper
+│   ├── layers.go
+│   ├── changes.go
+│   ├── waste.go
+│   ├── diff.go
+│   ├── check.go
+│   └── cache.go
 ├── internal/
-│   ├── config/           # Viper defaults, loading, validation
-│   ├── source/           # resolve a reference to a ggcr v1.Image
-│   ├── index/            # read layer tars → []Entry; cache by diffID
-│   ├── analysis/         # merged FS, change classification, waste, summaries, detectors
-│   ├── compare/          # two-image layer alignment and final-FS diff
-│   ├── output/           # table / json / plain renderers
-│   └── tui/
-│       ├── app.go        # root model and routing
-│       ├── layers/       # layers pane
-│       ├── tree/         # virtualised file tree component
-│       ├── detail/       # file detail and diff
-│       ├── theme/        # Lip Gloss styles
-│       └── keys/         # bindings and help
-└── testdata/             # small OCI layouts built for tests
+│   ├── config/           # Viper loading, .muscles.yaml discovery, validation, size parsing
+│   ├── source/           # reference → ggcr v1.Image (daemon, remote, tar, oci)
+│   ├── index/            # stream layer tars → entries; cache by diffID
+│   ├── analysis/         # merged filesystem, change classification, waste, summaries, detectors
+│   ├── compare/          # layer alignment and final-filesystem diff
+│   ├── check/            # budget and forbid rules → results
+│   ├── ci/               # CI detection, GitHub annotations
+│   └── output/           # table, json, markdown renderers
+└── testdata/             # small OCI layouts built by test helpers
 ```
 
-Data flows one way: **source → index → analysis → TUI or output**. The
-analysis package is pure (no I/O), which keeps it easy to test and lets the
-CLI and TUI share it.
+Data flows one way: **source → index → analysis / compare / check → output**.
+`analysis`, `compare` and `check` are pure (no I/O), which makes them easy to
+test and keeps every command consistent.
 
-For memory, the merged filesystem is a path-keyed tree where each node keeps
-the list of `(layer, entry)` versions. A 1 GB image with ~150k files should
-stay under ~300 MB RSS.
+The merged filesystem is a path-keyed tree where each node keeps its list of
+`(layer, entry)` versions. A 1 GB image with ~150k files should stay under
+~300 MB of memory.
 
-## 11. Performance targets
+## 12. Quality
+
+### 12.1 Performance targets
 
 | Case | Target |
 |------|--------|
-| First paint (manifest + config read) | < 300 ms local, < 1 s remote |
-| Index a 1 GB local image, cold | < 10 s |
-| Re-open any previously indexed image | < 500 ms |
-| Tree navigation with 150k entries | No visible lag (< 16 ms per frame) |
+| `layers` on a cached image | < 500 ms |
+| Index a 1 GB image from a tarball, cold | < 10 s |
+| `check` with a cached baseline in CI | < 15 s total for a 1 GB image |
 
-## 12. Testing
+### 12.2 Testing
 
-- **Fixtures:** tiny OCI layouts built in Go test helpers covering added,
-  modified, metadata-only and deleted files, opaque whiteouts, hardlinks,
-  symlinks, and empty-layer history entries.
-- **Analysis:** table-driven tests for classification, waste attribution and
-  each detector.
-- **Real images:** an opt-in integration test against a few pinned public
-  images (e.g. `alpine`, `python:slim`) by digest, with golden JSON output.
-- **TUI:** `teatest` golden snapshots at 80×24 and 160×48.
-- **CI:** `go vet`, `golangci-lint`, `go test -race`, GoReleaser snapshot build.
+- **Fixtures:** tiny OCI layouts built in test helpers covering added,
+  modified, permission-only and deleted files, opaque whiteouts, hardlinks,
+  symlinks and empty-layer history.
+- **Analysis and check:** table-driven tests for classification, waste
+  attribution, each detector and each rule.
+- **Output:** golden files for every command in all three formats; the JSON
+  goldens protect the `muscles/v1` schema.
+- **Real images:** opt-in integration tests against a few public images pinned
+  by digest (e.g. `alpine`, `python:3.12-slim`).
+- **CI for this repo:** `go vet`, `golangci-lint`, `go test -race`, GoReleaser
+  snapshot build, and `muscles check` run on a fixture image as a smoke test.
 
 ## 13. Milestones
 
 | Milestone | Scope |
 |-----------|-------|
-| **M1: Index** | Sources (daemon, tar, OCI, remote), layer indexing, change classification, `muscles layers` and `muscles changes` with JSON. Useful from the CLI on day one. |
-| **M2: TUI** | Layers pane, changes tree, Changes/Filesystem toggle, find, filter, file detail, progressive loading. |
-| **M3: Insight** | Waste calculation and view, layer summaries, detectors, text diffs of modified files, layer cache. **v1.0** |
-| **M4: Compare** | `muscles diff`, two-image view. **v1.1** |
-| **Later** | `muscles check` for CI budgets; package-aware summaries (read dpkg/apk/rpm databases to say "installed curl 8.10, removed libssl1.1"); export a report as Markdown. |
+| **M1: Read and explain** | Image sources, layer indexing, change classification, `layers` and `changes`, table and JSON output. |
+| **M2: Waste and summaries** | Waste attribution, `waste`, layer summaries and detectors, layer cache. |
+| **M3: Diff and check** | `diff`, `check`, `.muscles.yaml`, Markdown output, GitHub annotations, release binaries and container image, example workflow. **v1.0** |
+| **Later** | A published GitHub Action wrapper; posting/updating a PR comment directly; package-aware summaries (read dpkg/apk/rpm databases: "installed curl 8.10"); a small read-only `explore` TUI if browsing long `changes` output becomes painful. |
 
 ## 14. Open questions
 
-1. **Daemon export speed.** `pkg/v1/daemon` exports the whole image through
-   the Docker API, which is slow for large images. Is it worth reading
-   containerd's content store directly when available?
-2. **Hash choice.** xxhash is fast but not cryptographic. That's fine for
-   change detection; is a SHA-256 option worth offering for audit use?
-3. **Name.** Keep `muscles`, or rename to something layer-related now that the
-   project has changed?
+1. **Baseline in CI.** Is the baseline always the image from the base branch in
+   a registry, or should `muscles` also be able to save a baseline file (a
+   JSON report) as a build artifact, so no registry access is needed?
+2. **Daemon speed.** Exporting through the Docker API is slow for large
+   images. Read containerd's content store directly when available?
+3. **Name.** Keep `muscles`, or pick something that says "images"?
