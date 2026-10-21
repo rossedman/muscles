@@ -1,0 +1,12 @@
+# Normalize line endings; Go and shell files stay LF everywhere.
+* text=auto eol=lf
+
+# Binary fixtures and assets: never diff or convert.
+*.png    binary
+*.woff2  binary
+*.sqlite binary
+*.tar    binary
+*.gz     binary
+
+# Generated or vendored: collapse in GitHub diffs.
+go.sum linguist-generated=true
