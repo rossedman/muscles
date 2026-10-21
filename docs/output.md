@@ -49,7 +49,7 @@ Every object has `"schema": "muscles/v1"`. Within `v1`, fields are only ever add
 
 Note kinds: `package_cache`, `hidden_delete`, `permission_rewrite`, `overwrite`, `large_file`. Every note has a `fix`; `files` counts the files involved and `stored_in` lists the layers that still store the bytes, when that applies.
 
-`dockerfile_line` is present only with `--dockerfile` and a matching line. `packages` is present only on layers that changed the dpkg, apk or pip package databases; the packages are `{manager, name, version}`, upgrades `{manager, name, from, to}`.
+`dockerfile_line` is present only with `--dockerfile` and a matching line. `packages` is present only on layers that changed the dpkg, apk, rpm or pip package databases; the packages are `{manager, name, version}`, upgrades `{manager, name, from, to}`.
 
 `images inspect`:
 

@@ -41,7 +41,7 @@ Counts in `layers list` are files, symlinks and other non-directory entries. A d
 
 ## Notes
 
-The NOTE column says what a layer did: the packages it installed, upgraded or removed, read from the dpkg (Debian, Ubuntu), apk (Alpine) and pip package databases (`installed curl 7.88.1 and git 2.39.5 (dpkg)`), or else where most of its bytes went (`mostly /usr/local/lib/python3.12/site-packages (151 MB)`). Or a warning:
+The NOTE column says what a layer did: the packages it installed, upgraded or removed, read from the dpkg (Debian, Ubuntu), apk (Alpine), rpm (Fedora, RHEL and UBI, Rocky, Alma, Amazon Linux, openSUSE) and pip package databases (`installed curl 7.88.1 and git 2.39.5 (dpkg)`), or else where most of its bytes went (`mostly /usr/local/lib/python3.12/site-packages (151 MB)`). Or a warning:
 
 | Note | What it means | Usual fix |
 |---|---|---|

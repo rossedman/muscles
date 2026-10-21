@@ -15,7 +15,7 @@ import (
 )
 
 // cacheFormat versions the on-disk encoding; bump it when Layer changes.
-const cacheFormat = "v2"
+const cacheFormat = "v3"
 
 // Cache stores layer indexes by diffID under Dir, zstd-compressed gob,
 // capped at MaxBytes (oldest used first out). Writes are atomic.

@@ -146,7 +146,7 @@ History entries that made a layer are paired with layers aligned at the top (som
 
 - **Mostly:** descend from `/` while one directory holds at least 80% of a layer's changed bytes; if none dominates, the top three directories holding at least 10% each.
 - **Notes:** `package_cache` (apt, apk, yum, dnf, pip, npm, yarn, Go build cache), `hidden_delete`, `permission_rewrite` (≥ `warn.permission_rewrite`), `overwrite` (≥ `warn.overwrite`), `large_file` (≥ `warn.large_file`). Every note carries a `fix`.
-- **Packages:** the dpkg status file, apk's installed database and pip's `.dist-info/METADATA` are parsed as layers are indexed; each layer records the packages it installed, upgraded and removed, and its summary says so.
+- **Packages:** the dpkg status file, apk's installed database, rpm's database (SQLite, Berkeley DB or ndb) and pip's `.dist-info/METADATA` are parsed as layers are indexed; each layer records the packages it installed, upgraded and removed, and its summary says so.
 - **Fixes:** `images inspect` turns notes into fixes, each claiming the wasted bytes it would save (package caches first) so no byte is counted twice and the savings add up to the waste.
 - **Dockerfile lines:** with `--dockerfile`, the final stage's instructions are matched to steps from the top down, ignoring flags; unmatched steps have no line.
 
@@ -225,7 +225,6 @@ Data flows one way: source → index → analysis → compare / check → cli. S
 
 ## 13. Later
 
-- Package-aware summaries: read dpkg, apk and rpm databases to say "installed curl 8.10".
 - A JSON baseline report, so `images check --baseline report.json` needs no registry access.
 - Reading containerd's content store directly, avoiding the daemon's full export.
 - A small read-only `explore` TUI, if browsing long `changes list` output proves painful.

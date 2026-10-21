@@ -88,7 +88,9 @@ Images don't record which line made a layer. Rather than require BuildKit proven
 
 ### D12. Packages from the databases, not from file paths
 
-Package managers already write down what is installed. Reading the dpkg status file, apk's database and pip's `METADATA` as layers are indexed (and caching the result with the index) gives exact names and versions for "what did this layer install" and "what changed between images", at the cost of reading a few small files.
+Package managers already write down what is installed. Reading the dpkg status file, apk's database, rpm's database and pip's `METADATA` as layers are indexed (and caching the result with the index) gives exact names and versions for "what did this layer install" and "what changed between images", at the cost of reading a few files.
+
+rpm keeps its database in SQLite, Berkeley DB or its own ndb format depending on the distribution's age. muscles reads all three with small read-only parsers of its own (find the table or hash pages, follow overflow chains, decode rpm headers) rather than linking SQLite and Berkeley DB libraries: the binary stays small and static, and only the few structures rpm uses are needed. Layers are untrusted input, so the parsers are fuzzed: a damaged file yields fewer packages, never a crash.
 
 ### D13. Shortcuts rewrite argv, with typos left alone
 

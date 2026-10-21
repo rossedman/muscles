@@ -135,7 +135,7 @@ type Report struct {
 	EmptyAfter []string // empty steps after the last layer (CMD, ENTRYPOINT, ...)
 	WasteItems []WasteItem
 	Final      map[string]FinalEntry
-	Packages   pkgdb.Set // installed in the final image, from dpkg, apk and Python metadata
+	Packages   pkgdb.Set // installed in the final image, from dpkg, apk, rpm and Python metadata
 }
 
 // Options tune the notes.

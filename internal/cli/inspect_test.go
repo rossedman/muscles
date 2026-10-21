@@ -153,3 +153,24 @@ func TestFixesInChecksAndDiffs(t *testing.T) {
 	must(t, e.run("images", "diff", a, b, "-o", "markdown"), 0, []string{"**Packages** (3 changes)", "| + | git | 2.39 | dpkg |"}, nil)
 	must(t, e.run("layers", b), 0, []string{"installed curl 1, git 2.39 and libc6 2.37 (dpkg)"}, nil)
 }
+
+func TestRPMPackages(t *testing.T) {
+	e := newEnv(t)
+	e.tty = true
+	db, err := os.ReadFile("../pkgdb/testdata/rpmdb.sqlite")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(e.dirs.Cwd, "fedora.tar")
+	tag, _ := name.NewTag("fedora:test")
+	img := testimg.Build(testimg.Layer("ADD fedora.tar /", testimg.File{Path: "usr/lib/sysimage/rpm/rpmdb.sqlite", Body: string(db)}))
+	if err := tarball.WriteToFile(p, tag, img); err != nil {
+		t.Fatal(err)
+	}
+	must(t, e.run("layers", p), 0, []string{"installed 43 packages (rpm)"}, nil)
+	m := decode(t, e.run("layers", "list", p, "--json").out)
+	pkgs := m["layers"].([]any)[0].(map[string]any)["packages"].(map[string]any)["installed"].([]any)
+	if first := pkgs[0].(map[string]any); first["manager"] != "rpm" || first["name"] != "bash" || first["version"] != "5.2.32-1.fc41" {
+		t.Errorf("first package: %v", first)
+	}
+}

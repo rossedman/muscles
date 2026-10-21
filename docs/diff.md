@@ -26,7 +26,7 @@ Few shared layers usually means an early step changed: a new base image, or a `C
 
 ## Packages
 
-When the images' package databases differ (dpkg, apk or pip), a table lists the packages installed (`+`), upgraded (`~`, old → new version) and removed (`-`). This is often the quickest answer to "why did it grow": a new dependency, or an upgrade that pulled others in.
+When the images' package databases differ (dpkg, apk, rpm or pip), a table lists the packages installed (`+`), upgraded (`~`, old → new version) and removed (`-`). This is often the quickest answer to "why did it grow": a new dependency, or an upgrade that pulled others in.
 
 ## Filesystem
 

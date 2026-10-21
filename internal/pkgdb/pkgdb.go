@@ -1,6 +1,6 @@
 // Package pkgdb reads the package databases found in image layers (dpkg's
-// status file and status.d entries, apk's installed file) and Python
-// .dist-info directories, and compares package sets. It does no I/O: the
+// status file and status.d entries, apk's installed file, rpm's databases)
+// and Python .dist-info directories, and compares package sets. It does no I/O: the
 // indexer hands it the bytes of the files IsDB names.
 package pkgdb
 
@@ -14,12 +14,13 @@ import (
 	"strings"
 )
 
-// MaxDB is the largest database file read; bigger ones are skipped.
-const MaxDB = 32 << 20
+// MaxDB is the largest database file read; bigger ones are skipped. rpm
+// databases of large images run to tens of megabytes.
+const MaxDB = 128 << 20
 
 // Pkg is one installed package.
 type Pkg struct {
-	Manager string `json:"manager"` // dpkg, apk or pip
+	Manager string `json:"manager"` // dpkg, apk, rpm or pip
 	Name    string `json:"name"`
 	Version string `json:"version"`
 }
@@ -30,7 +31,7 @@ func (p Pkg) key() string { return p.Manager + "/" + p.Name }
 // contents Parse needs.
 func IsDB(p string) bool {
 	switch {
-	case p == "/var/lib/dpkg/status", p == "/lib/apk/db/installed":
+	case p == "/var/lib/dpkg/status", p == "/lib/apk/db/installed", rpmDBs[p]:
 		return true
 	case strings.HasPrefix(p, "/var/lib/dpkg/status.d/"):
 		return !strings.HasSuffix(path.Base(p), ".md5sums") // skip the checksums beside each entry
@@ -42,6 +43,9 @@ func IsDB(p string) bool {
 func Parse(p string, data []byte) []Pkg {
 	if p == "/lib/apk/db/installed" {
 		return stanzas(data, "apk", "P", "V", "")
+	}
+	if rpmDBs[p] {
+		return parseRPM(data)
 	}
 	return stanzas(data, "dpkg", "Package", "Version", "Status")
 }
