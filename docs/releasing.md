@@ -5,7 +5,7 @@ Releases are built by [GoReleaser](https://goreleaser.com) from a version tag. E
 - archives for macOS, Linux and Windows on amd64 and arm64, each with the binary, shell completions (bash, zsh, fish) and a man page,
 - `checksums.txt`, signed keylessly with cosign (`checksums.txt.sigstore.json`), and build provenance for every archive,
 - a multi-arch container image, `ghcr.io/rossedman/muscles:<version>` and `:latest`, signed with cosign, for CI systems that run steps in containers,
-- release notes grouped from the merged commits, and
+- release notes grouped from the merged commits,
 - the GitHub Action at that tag: `uses: rossedman/muscles@vX.Y.Z` installs that release, and
 - a Homebrew cask in [rossedman/homebrew-tap](https://github.com/rossedman/homebrew-tap), once the tap is set up (below).
 

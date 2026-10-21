@@ -16,7 +16,7 @@ With Go 1.26 or later:
 go install github.com/rossedman/muscles/cmd/muscles@latest
 ```
 
-Or download an archive for your platform from the [releases page](https://github.com/rossedman/muscles/releases) and put `muscles` on your `PATH`. Archives include shell completions and a man page. Releases are signed with [cosign](https://docs.sigstore.dev); to check one before you run it:
+Or download an archive for your platform from the [releases page](https://github.com/rossedman/muscles/releases) and put `muscles` on your `PATH`. Archives include shell completions and a man page. Releases after v0.0.4 are signed with [cosign](https://docs.sigstore.dev); to check one before you run it:
 
 ```bash
 VERSION=0.1.0   # the release you downloaded

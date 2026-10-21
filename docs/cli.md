@@ -29,7 +29,7 @@ Settings and more
 
 ## Shortcuts
 
-Two shortcuts save typing; the full commands are what you put in scripts.
+Shortcuts save typing; the full commands are what you put in scripts.
 
 | You type | muscles runs |
 |---|---|

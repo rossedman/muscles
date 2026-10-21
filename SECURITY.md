@@ -23,7 +23,7 @@ advisory is published with it, crediting you unless you'd rather not be.
 
 ## Verifying a release
 
-Releases are signed keylessly with [cosign](https://docs.sigstore.dev): the
+Releases after v0.0.4 are signed keylessly with [cosign](https://docs.sigstore.dev): the
 signature binds them to this repository's release workflow, with no keys to
 leak. `checksums.txt` lists every archive, and `checksums.txt.sigstore.json`
 signs it. Check the signature, then the archive you downloaded:

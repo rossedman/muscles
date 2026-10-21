@@ -9,7 +9,7 @@
 | **Status** | v0.1, implemented. This spec records what was built and why; the [docs](index.md) are the user-facing reference. |
 | **Author** | Ross Edman |
 | **Last updated** | 2026-10-20 |
-| **Language** | Go (1.23+) |
+| **Language** | Go (1.26+) |
 | **Libraries** | Cobra, Viper, go-containerregistry, Lip Gloss (color only), xxhash, zstd, doublestar |
 | **Style guide** | [CLI Style](https://cli.style) |
 
