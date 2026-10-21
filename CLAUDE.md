@@ -20,6 +20,7 @@ internal/compare/    two images (no I/O)
 internal/check/      budgets and forbidden paths (no I/O)
 internal/ui/         terminal detection, theme, banner, tables
 internal/testimg/    images built in memory for tests and docs screenshots
+action.yml, scripts/action/   the GitHub Action (composite, bash)
 docs/, overrides/    the site; mkdocs.yml is its nav
 ```
 

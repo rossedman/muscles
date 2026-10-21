@@ -112,6 +112,13 @@ func TestFixesInChecksAndDiffs(t *testing.T) {
 	t.Setenv("GITHUB_ACTIONS", "true")
 	r = e.run("images", "check", fixtures.v1, "--max-size", "1KB", "--dockerfile", df)
 	must(t, r, 5, []string{"::warning file=" + ghProperty(df) + ",line=3,title=muscles package cache::apt lists left behind: 9 KB (L1 RUN apt-get update && apt-get install -y curl)%0AFix: End this RUN", "warn\tpackage cache\t", "\tEnd this RUN with `&& rm -rf /var/lib/apt/lists/*`.\t3"}, nil)
+	// In a checkout, the path is relative to it, so GitHub places the annotation on the diff.
+	t.Setenv("GITHUB_WORKSPACE", e.dirs.Cwd)
+	must(t, e.run("images", "check", fixtures.v1, "--max-size", "1KB", "--dockerfile", df), 5, []string{"::warning file=Dockerfile,line=3,"}, nil)
+	if got := workspacePath("/elsewhere/Dockerfile"); got != "/elsewhere/Dockerfile" {
+		t.Errorf("outside the workspace: %s", got)
+	}
+	t.Setenv("GITHUB_WORKSPACE", "")
 	t.Setenv("GITHUB_ACTIONS", "")
 	m := decode(t, e.run("images", "check", fixtures.v1, "--max-size", "1KB", "--json", "--dockerfile", df).out)
 	res := m["results"].([]any)[1].(map[string]any)

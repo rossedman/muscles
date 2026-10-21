@@ -115,7 +115,7 @@ func (a *app) printCheck(rep check.Report) error {
 			}
 			where := ""
 			if r.Line > 0 {
-				where = fmt.Sprintf("file=%s,line=%d,", ghProperty(a.cfg.Dockerfile), r.Line)
+				where = fmt.Sprintf("file=%s,line=%d,", ghProperty(workspacePath(a.cfg.Dockerfile)), r.Line)
 			}
 			fmt.Fprintf(a.opts.Stdout, "::%s %stitle=muscles %s::%s\n", level, where, r.Rule, ghEscape(msg))
 		}
@@ -192,6 +192,24 @@ func plural(n int, word string) string {
 		return "1 " + word
 	}
 	return fmt.Sprintf("%d %ss", n, word)
+}
+
+// workspacePath makes path relative to the repository checkout
+// ($GITHUB_WORKSPACE), the form GitHub needs to place an annotation on a
+// pull request's diff. Paths outside the checkout are left as they are.
+func workspacePath(path string) string {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	ws := os.Getenv("GITHUB_WORKSPACE")
+	if ws == "" {
+		ws, _ = os.Getwd()
+	}
+	if rel, err := filepath.Rel(ws, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, "../") {
+		return filepath.ToSlash(rel)
+	}
+	return path
 }
 
 // ghProperty escapes a workflow command's property value.

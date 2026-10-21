@@ -1,0 +1,126 @@
+name: muscles
+description: Explain a container image in CI, check it against budgets, and comment on the pull request with what changed.
+author: rossedman
+branding:
+  icon: layers
+  color: purple
+
+inputs:
+  image:
+    description: The image to explain and check, like app.tar, ./oci-layout or ghcr.io/acme/app:pr-12.
+    required: true
+  baseline:
+    description: The image to compare with and measure growth against, usually the main branch's image.
+    required: false
+    default: ""
+  dockerfile:
+    description: The Dockerfile the image was built from, so fixes and annotations point at its lines.
+    required: false
+    default: ""
+  check:
+    description: Run `muscles images check` and fail the step when a budget fails (exit 5).
+    required: false
+    default: "true"
+  comment:
+    description: On pull requests, post the report as a comment, updated in place on every push.
+    required: false
+    default: "true"
+  args:
+    description: More arguments for `muscles images check`, like `--max-size 800MB`.
+    required: false
+    default: ""
+  version:
+    description: The muscles release to install, like v0.0.4. Default the action's own tag, or the latest release.
+    required: false
+    default: ""
+  install:
+    description: Install muscles. Set false to use a muscles already on PATH.
+    required: false
+    default: "true"
+  cache:
+    description: Cache layer indexes between runs with actions/cache.
+    required: false
+    default: "true"
+  token:
+    description: Token for downloading the release and writing the comment. Needs pull-requests write to comment.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  ok:
+    description: '"true" when every check passed, "false" when one failed.'
+    value: ${{ steps.check.outputs.ok }}
+  size:
+    description: The image's uncompressed size in bytes.
+    value: ${{ steps.report.outputs.size }}
+  waste:
+    description: The image's wasted bytes.
+    value: ${{ steps.report.outputs.waste }}
+  size-delta:
+    description: The size change from the baseline in bytes, when there is a baseline.
+    value: ${{ steps.report.outputs.size-delta }}
+  report:
+    description: Path of the Markdown report.
+    value: ${{ steps.report.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install muscles
+      if: inputs.install == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        MUSCLES_VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
+      run: '"$GITHUB_ACTION_PATH/scripts/action/install.sh"'
+
+    - name: Cache layer indexes
+      if: inputs.cache == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/muscles-cache
+        key: muscles-${{ runner.os }}-${{ github.sha }}
+        restore-keys: muscles-${{ runner.os }}-
+
+    - name: Report
+      id: report
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        BASELINE: ${{ inputs.baseline }}
+        MUSCLES_DOCKERFILE: ${{ inputs.dockerfile }}
+        MUSCLES_CACHE_DIR: ${{ inputs.cache == 'true' && format('{0}/muscles-cache', runner.temp) || '' }}
+      run: '"$GITHUB_ACTION_PATH/scripts/action/report.sh"'
+
+    - name: Check budgets
+      id: check
+      if: inputs.check == 'true'
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        BASELINE: ${{ inputs.baseline }}
+        ARGS: ${{ inputs.args }}
+        REPORT: ${{ steps.report.outputs.report }}
+        MUSCLES_DOCKERFILE: ${{ inputs.dockerfile }}
+        MUSCLES_CACHE_DIR: ${{ inputs.cache == 'true' && format('{0}/muscles-cache', runner.temp) || '' }}
+      run: '"$GITHUB_ACTION_PATH/scripts/action/check.sh"'
+
+    - name: Comment on the pull request
+      if: inputs.comment == 'true' && github.event.pull_request.number
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        IMAGE: ${{ inputs.image }}
+        REPORT: ${{ steps.report.outputs.report }}
+        PR: ${{ github.event.pull_request.number }}
+      run: '"$GITHUB_ACTION_PATH/scripts/action/comment.sh"'
+
+    - name: Fail when a budget failed
+      if: steps.check.outputs.code != '' && steps.check.outputs.code != '0'
+      shell: bash
+      env:
+        CODE: ${{ steps.check.outputs.code }}
+      run: |
+        echo "::error title=muscles::images check exited $CODE"
+        exit "$CODE"
