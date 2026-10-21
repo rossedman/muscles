@@ -58,7 +58,7 @@ type Layer struct {
 	Compressed int64  // compressed size, as the source reports it
 	Size       int64  // sum of the regular files' sizes
 	Entries    []Entry
-	// Packages are the package database files in this layer (dpkg, apk)
+	// Packages are the package database files in this layer (dpkg, apk, rpm)
 	// and Python .dist-info metadata, keyed by path, as their packages.
 	Packages map[string][]pkgdb.Pkg
 }
