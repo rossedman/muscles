@@ -225,7 +225,6 @@ Data flows one way: source → index → analysis → compare / check → cli. S
 
 ## 13. Later
 
-- A published GitHub Action wrapper, and posting or updating a pull request comment directly.
 - A JSON baseline report, so `images check --baseline report.json` needs no registry access.
 - Reading containerd's content store directly, avoiding the daemon's full export.
 - A small read-only `explore` TUI, if browsing long `changes list` output proves painful.

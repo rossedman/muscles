@@ -95,10 +95,14 @@ check:
 Then, in GitHub Actions, after building the image to a tarball:
 
 ```yaml
-- run: go install github.com/rossedman/muscles/cmd/muscles@latest
-- run: muscles images diff ghcr.io/acme/app:main app.tar -o markdown >> "$GITHUB_STEP_SUMMARY"
-- run: muscles images check app.tar --baseline ghcr.io/acme/app:main
+- uses: rossedman/muscles@v0.0.4
+  with:
+    image: app.tar
+    baseline: ghcr.io/acme/app:main
+    dockerfile: Dockerfile
 ```
+
+The action installs muscles, fails the job when a budget fails, annotates the Dockerfile lines at fault, and keeps one comment on the pull request up to date with what changed and what to fix.
 
 <p align="center">
   <img src="docs/assets/terminal/check.png" alt="muscles images check: each rule with pass, fail or warn, and a summary; exit 5 when a rule fails." width="100%">
