@@ -35,8 +35,10 @@ func TestImagesInspect(t *testing.T) {
 	e := newEnv(t)
 	e.tty = true
 	r := e.run("images", "inspect", fixtures.v1)
-	must(t, r, 0, []string{"251 KB · 1.8 KB to pull · 89 KB wasted (36%) · 6 layers", "FIX THESE FIRST (saves 89 KB)",
-		" 1  saves 60 KB  L5 RUN chown -R 1000:1000 /app", "→ Set the owner", "Leaves the apt lists", "BIGGEST LAYERS", "mostly /usr/local/lib/python3.12/site-packages"},
+	must(t, r, 0,
+		// The compressed size depends on the Go version's gzip, so it isn't pinned.
+		[]string{"251 KB · ", " to pull · 89 KB wasted (36%) · 6 layers", "FIX THESE FIRST (saves 89 KB)",
+			" 1  saves 60 KB  L5 RUN chown -R 1000:1000 /app", "→ Set the owner", "Leaves the apt lists", "BIGGEST LAYERS", "mostly /usr/local/lib/python3.12/site-packages"},
 		[]string{"Next: muscles changes list " + fixtures.v1 + " --layer 5   (the files behind fix 1)"})
 
 	// The bare image runs inspect; --limit summarizes the rest.

@@ -2,6 +2,8 @@ module github.com/rossedman/muscles
 
 go 1.26.0
 
+toolchain go1.26.10
+
 require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/bmatcuk/doublestar/v4 v4.10.3
