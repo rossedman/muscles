@@ -6,6 +6,7 @@ Releases are built by [GoReleaser](https://goreleaser.com) from a version tag. E
 - `checksums.txt`,
 - a multi-arch container image, `ghcr.io/rossedman/muscles:<version>` and `:latest`, for CI systems that run steps in containers,
 - release notes grouped from the merged commits, and
+- the GitHub Action at that tag: `uses: rossedman/muscles@vX.Y.Z` installs that release, and
 - a Homebrew cask in [rossedman/homebrew-tap](https://github.com/rossedman/homebrew-tap), once the tap is set up (below).
 
 ## Cut a release

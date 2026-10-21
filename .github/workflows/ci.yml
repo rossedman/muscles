@@ -62,6 +62,32 @@ jobs:
           ./muscles layers list muscles.tar -o markdown >> "$GITHUB_STEP_SUMMARY"
       - name: Check it
         run: ./muscles images check muscles.tar
+      # The action from this checkout, with the muscles just built.
+      - run: echo "$PWD" >> "$GITHUB_PATH"
+      - uses: ./
+        with:
+          image: muscles.tar
+          dockerfile: Dockerfile
+          install: "false"
+          comment: "false"
+
+  # The action as users run it: installing the latest release.
+  action:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./
+        id: muscles
+        with:
+          image: alpine:3.20
+          baseline: alpine:3.19
+          check: "false"
+          comment: "false"
+      - name: Outputs are set
+        run: test "${{ steps.muscles.outputs.size }}" -gt 0 && test -s "${{ steps.muscles.outputs.report }}"
 
   release-config:
     runs-on: ubuntu-latest
