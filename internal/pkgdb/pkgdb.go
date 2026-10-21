@@ -25,6 +25,7 @@ type Pkg struct {
 	Version string `json:"version"`
 }
 
+// key identifies a package by manager and name, ignoring the version.
 func (p Pkg) key() string { return p.Manager + "/" + p.Name }
 
 // IsDB reports whether the file at path is a package database whose
@@ -182,6 +183,7 @@ func (d Diff) Summary() string {
 	return strings.Join(parts, "; ")
 }
 
+// listPkgs summarizes packages for display: their names when few, otherwise a count, with the manager when there is only one.
 func listPkgs(ps []Pkg) string {
 	managers := map[string]bool{}
 	for _, p := range ps {

@@ -32,6 +32,7 @@ type layerJSON struct {
 	EmptyBefore []string            `json:"empty_steps_before"`
 }
 
+// newLayersListCmd builds `muscles layers list`, which lists each layer with its size, changes, Dockerfile step and notes.
 func newLayersListCmd(a *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list IMAGE",
@@ -65,6 +66,7 @@ meta, deleted, step, note, dockerfile line (0 if unknown), fix.` + "\n" + imageH
 	}
 }
 
+// printLayers writes the layer list in the chosen output format.
 func (a *app) printLayers(r *analysis.Report) error {
 	f, _ := a.format()
 	if f == formatJSON {

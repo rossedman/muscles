@@ -30,6 +30,7 @@ type inspectJSON struct {
 // biggestLayers is how many layers inspect shows by size.
 const biggestLayers = 3
 
+// newImagesInspectCmd builds `muscles images inspect`, which says what to fix first in an image and how much each fix saves.
 func newImagesInspectCmd(a *app) *cobra.Command {
 	var limit int
 	cmd := &cobra.Command{
@@ -86,6 +87,7 @@ func biggest(r *analysis.Report, n int) []analysis.Layer {
 	return out
 }
 
+// printInspect writes the image summary, advice and biggest layers in the chosen output format.
 func (a *app) printInspect(r *analysis.Report, adv advice.Advice, limit int) error {
 	f, _ := a.format()
 	big := biggest(r, biggestLayers)

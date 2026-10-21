@@ -2,6 +2,7 @@ package cli
 
 import "github.com/spf13/cobra"
 
+// newImagesCmd builds `muscles images`, the noun for inspecting, diffing and checking images.
 func newImagesCmd(a *app) *cobra.Command {
 	cmd := noun("images", "Inspect an image, compare two, or check one against budgets",
 		`Say what to fix first in an image, compare two images layer by layer and

@@ -24,6 +24,7 @@ func (a *app) terse() bool {
 	return false
 }
 
+// isNoun reports whether cmd is a noun command, one that only groups verbs.
 func isNoun(cmd *cobra.Command) bool { return cmd.Annotations["noun"] == "true" }
 
 // help renders a command's help on stdout: help that was asked for is data.

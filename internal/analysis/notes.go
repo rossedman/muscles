@@ -32,6 +32,7 @@ func CacheFix(path string) (label, fix string, ok bool) {
 	return "", "", false
 }
 
+// summarize renders the directories that hold most of a layer's bytes, like "mostly /usr (12 MB), /opt (3 MB)".
 func summarize(m []DirBytes) string {
 	if len(m) == 0 {
 		return ""
@@ -80,6 +81,7 @@ func rewriteFix(step string) string {
 	return "Set owners and permissions in the step that creates the files, not in a later layer."
 }
 
+// notes finds what is worth a second look in one layer's changes: package caches, deletions that free nothing, permission-only rewrites and large files.
 func notes(changes []Change, step string, o Options) []Note {
 	var out []Note
 	caches := map[string]int64{}

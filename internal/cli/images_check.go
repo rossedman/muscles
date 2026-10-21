@@ -20,6 +20,7 @@ type checkJSON struct {
 	Results []check.Result `json:"results"`
 }
 
+// newImagesCheckCmd builds `muscles images check`, which checks an image against budgets and forbidden paths and exits 5 on failure.
 func newImagesCheckCmd(a *app) *cobra.Command {
 	var baseline string
 	cmd := &cobra.Command{
@@ -95,6 +96,7 @@ status, rule, result, detail, fix, dockerfile line (0 if unknown).` + "\n" + ima
 	return cmd
 }
 
+// printCheck writes the check results in the chosen format, adding GitHub Actions annotations when it runs there.
 func (a *app) printCheck(rep check.Report) error {
 	f, _ := a.format()
 	if f == formatJSON {

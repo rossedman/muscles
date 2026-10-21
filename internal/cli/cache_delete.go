@@ -13,6 +13,7 @@ type cacheDeleteJSON struct {
 	Bytes   int64  `json:"bytes"`
 }
 
+// newCacheDeleteCmd builds `muscles cache delete`, which clears the layer index cache or, with --preview, reports what it would clear.
 func newCacheDeleteCmd(a *app) *cobra.Command {
 	var preview bool
 	cmd := &cobra.Command{

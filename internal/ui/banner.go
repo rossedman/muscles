@@ -24,6 +24,7 @@ const Tagline = "explain container images, layer by layer"
 // stops is the banner's left-to-right gradient.
 var stops = [][3]float64{{0x38, 0xbd, 0xf8}, {0xa7, 0x8b, 0xfa}, {0xf4, 0x72, 0xb6}}
 
+// gradient returns the banner color at t, from 0 to 1, blended between stops.
 func gradient(t float64) color.Color {
 	if t <= 0 {
 		t = 0

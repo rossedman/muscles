@@ -22,6 +22,7 @@ internal/ui/         terminal detection, theme, banner, tables
 internal/testimg/    images built in memory for tests and docs screenshots
 action.yml, scripts/action/   the GitHub Action (composite, bash)
 docs/, overrides/    the site; mkdocs.yml is its nav
+tools/               repo checks: doccheck, check-cmds.sh
 ```
 
 `docs/design.md` explains the decisions (D1 to D9); read the relevant one
@@ -34,6 +35,8 @@ Run before pushing; CI runs the same (`.github/workflows/ci.yml`):
 ```bash
 gofmt -l .                       # must print nothing
 go vet ./...
+./tools/check-cmds.sh             # one command per file in internal/cli
+go run ./tools/doccheck ./...    # a doc comment on every function
 golangci-lint run ./...
 go test -race ./...              # CI also fails below 90% total coverage:
 go test -coverprofile=/tmp/c.out ./... && go tool cover -func=/tmp/c.out | tail -1

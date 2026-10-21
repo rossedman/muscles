@@ -32,6 +32,7 @@ type diffJSON struct {
 	Packages        pkgdb.Diff      `json:"packages"`
 }
 
+// newImagesDiffCmd builds `muscles images diff`, which shows what changed from one image to another.
 func newImagesDiffCmd(a *app) *cobra.Command {
 	var (
 		files bool
@@ -81,6 +82,7 @@ TARGET's layers show their Dockerfile lines.` + "\n" + imageHelp,
 	return cmd
 }
 
+// printDiff writes the comparison of two images in the chosen output format.
 func (a *app) printDiff(r *compare.Result, limit int) error {
 	rows := analysis.RollupChanges(r.Changes, limit)
 	f, _ := a.format()
@@ -213,6 +215,7 @@ func (a *app) packagesTable(d pkgdb.Diff) *ui.Table {
 	return t
 }
 
+// diffNote explains a diff row: how many files a directory holds, what a modified file was, or that only permissions changed.
 func (a *app) diffNote(row analysis.Row) string {
 	switch {
 	case row.Dir:

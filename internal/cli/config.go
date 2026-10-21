@@ -2,6 +2,7 @@ package cli
 
 import "github.com/spf13/cobra"
 
+// newConfigCmd builds `muscles config`, the noun for settings and where each one came from.
 func newConfigCmd(a *app) *cobra.Command {
 	cmd := noun("config", "Show settings and where each one came from",
 		`Show muscles' settings. Each one is resolved in this order, first match

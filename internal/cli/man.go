@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra/doc"
 )
 
+// newManCmd builds `muscles man`, which prints the man page generated from the command tree.
 func newManCmd(a *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "man",

@@ -2,6 +2,7 @@ package cli
 
 import "github.com/spf13/cobra"
 
+// newLayersCmd builds `muscles layers`, the noun for an image's layers.
 func newLayersCmd(a *app) *cobra.Command {
 	cmd := noun("layers", "Inspect an image's layers",
 		`Inspect an image's layers: what each one stored, which Dockerfile step made

@@ -10,6 +10,8 @@ import (
 
 var execute = cli.Execute
 
+// main runs the CLI and exits with its code.
 func main() { os.Exit(run()) }
 
+// run calls execute, a variable so tests can swap in a fake.
 func run() int { return execute() }

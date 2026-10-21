@@ -130,6 +130,7 @@ func dest(args string) string {
 	return f[len(f)-1]
 }
 
+// split separates a step into its instruction and arguments.
 func split(step string) (string, string) {
 	cmd, args, _ := strings.Cut(strings.TrimSpace(step), " ")
 	return cmd, args

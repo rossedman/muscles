@@ -150,6 +150,7 @@ type sqlite struct {
 	seen             map[int]bool
 }
 
+// page returns the 1-based database page n, or nil if it is out of range.
 func (s *sqlite) page(n int) []byte {
 	off := (n - 1) * s.pageSize
 	if n < 1 || off+s.pageSize > len(s.data) {
@@ -290,6 +291,7 @@ func record(b []byte) ([][]byte, []uint64) {
 	return rec, types
 }
 
+// serialSize returns the byte length of a value whose SQLite record serial type is t.
 func serialSize(t uint64) int {
 	switch {
 	case t <= 4:

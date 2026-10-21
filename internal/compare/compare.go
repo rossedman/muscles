@@ -157,6 +157,7 @@ func (r *Result) BiggestLayerChange() (LayerPair, int64, bool) {
 	return best, bestD, found
 }
 
+// abs returns the absolute value of n.
 func abs(n int64) int64 {
 	if n < 0 {
 		return -n

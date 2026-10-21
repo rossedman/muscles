@@ -176,6 +176,7 @@ func Forbidden(img *analysis.Report, pattern string, allow []string) []string {
 	return out
 }
 
+// anyMatch reports whether p matches any of the patterns.
 func anyMatch(pats []string, p string, dir bool) bool {
 	for _, a := range pats {
 		if matches(a, p, dir) {
@@ -185,6 +186,7 @@ func anyMatch(pats []string, p string, dir bool) bool {
 	return false
 }
 
+// matches reports whether p matches a glob pattern. A trailing slash limits the pattern to directories.
 func matches(pattern, p string, dir bool) bool {
 	if strings.HasSuffix(pattern, "/") {
 		if !dir {
@@ -196,6 +198,7 @@ func matches(pattern, p string, dir bool) bool {
 	return ok
 }
 
+// biggestLayer names the largest layer, as a hint for a failed size budget. It returns "" for an image with no layers.
 func biggestLayer(img *analysis.Report, iec bool) string {
 	best := -1
 	for i, l := range img.Layers {
@@ -210,6 +213,7 @@ func biggestLayer(img *analysis.Report, iec bool) string {
 	return fmt.Sprintf("biggest layer: L%d %s (%s)", l.Index, l.Step, size.Format(l.Size, iec))
 }
 
+// biggestWaste names the largest source of waste, as a hint for a failed waste budget. It returns "" when there is none.
 func biggestWaste(img *analysis.Report, iec bool) string {
 	rows := analysis.RollupWaste(img.WasteItems, 5)
 	if len(rows) == 0 {

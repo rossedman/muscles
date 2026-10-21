@@ -17,6 +17,7 @@ type cacheJSON struct {
 	Layers   []index.CacheEntry `json:"layers"`
 }
 
+// newCacheListCmd builds `muscles cache list`, which lists cached layer indexes, most recently used first.
 func newCacheListCmd(a *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",

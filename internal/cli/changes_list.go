@@ -33,6 +33,7 @@ type changeFilter struct {
 	limit   int
 }
 
+// newChangesListCmd builds `muscles changes list`, which lists the paths layers added, modified, rewrote or deleted.
 func newChangesListCmd(a *app) *cobra.Command {
 	var cf changeFilter
 	cmd := &cobra.Command{
@@ -89,6 +90,7 @@ layer, type, size, path, count, note.` + "\n" + imageHelp,
 	return cmd
 }
 
+// validate checks the filter's change types and returns the --min-size value in bytes.
 func (cf changeFilter) validate() (int64, error) {
 	for _, t := range cf.types {
 		ok := false
@@ -112,6 +114,7 @@ func (cf changeFilter) validate() (int64, error) {
 	return n, nil
 }
 
+// keep reports whether a change passes the filter's types, layer and path.
 func (cf changeFilter) keep(c analysis.Change) bool {
 	if len(cf.types) > 0 {
 		ok := false
@@ -128,6 +131,7 @@ func (cf changeFilter) keep(c analysis.Change) bool {
 	return true
 }
 
+// printChanges writes the filtered changes of a report in the chosen output format.
 func (a *app) printChanges(r *analysis.Report, cf changeFilter, minSize int64) error {
 	limit := cf.limit
 	if cf.files {
@@ -191,6 +195,7 @@ func (a *app) printChanges(r *analysis.Report, cf changeFilter, minSize int64) e
 	return a.render(f, t, title)
 }
 
+// pathPaint returns the painter for a path column: muted for deletions, none otherwise.
 func (a *app) pathPaint(t analysis.ChangeType) func(string) string {
 	if t == analysis.Deleted {
 		return a.th.Painter(a.th.Muted)

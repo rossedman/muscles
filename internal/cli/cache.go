@@ -2,6 +2,7 @@ package cli
 
 import "github.com/spf13/cobra"
 
+// newCacheCmd builds `muscles cache`, the noun for the layer index cache.
 func newCacheCmd(a *app) *cobra.Command {
 	cmd := noun("cache", "Inspect or clear the layer index cache",
 		`Inspect or clear the layer index cache. Layers are identified by content,

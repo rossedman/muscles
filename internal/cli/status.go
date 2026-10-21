@@ -46,6 +46,7 @@ func (s *status) start(text string) {
 // set changes the text, starting the line if needed.
 func (s *status) set(text string) { s.start(text) }
 
+// spin redraws the spinner every 100ms until stop is closed.
 func (s *status) spin(stop chan struct{}) {
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()
@@ -62,6 +63,7 @@ func (s *status) spin(stop chan struct{}) {
 	}
 }
 
+// drawLocked draws the spinner frame and text on the current line. The caller holds s.mu.
 func (s *status) drawLocked() {
 	if s.text == "" {
 		return
@@ -85,6 +87,7 @@ func (s *status) clear() {
 	s.text = ""
 }
 
+// jsonEncoder returns an encoder that writes indented JSON without escaping HTML.
 func jsonEncoder(w io.Writer) *json.Encoder {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

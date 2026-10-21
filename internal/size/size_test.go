@@ -1,6 +1,9 @@
 package size
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestParseBytes(t *testing.T) {
 	cases := map[string]int64{
@@ -17,6 +20,9 @@ func TestParseBytes(t *testing.T) {
 		"3tb":     3_000_000_000_000,
 		"4k":      4000,
 		" 10 mb ": 10_000_000,
+		// The largest size: what Format(math.MaxInt64) prints reads back.
+		"9223372036854775807": math.MaxInt64,
+		"8388608 TiB":         math.MaxInt64,
 	}
 	for in, want := range cases {
 		got, err := ParseBytes(in)
@@ -24,7 +30,7 @@ func TestParseBytes(t *testing.T) {
 			t.Errorf("ParseBytes(%q) = %d, %v; want %d", in, got, err, want)
 		}
 	}
-	for _, bad := range []string{"", "MB", "12XB", "-5MB", "1.2.3MB"} {
+	for _, bad := range []string{"", "MB", "12XB", "-5MB", "1.2.3MB", "1e20", "10000000t", "9223372036854775808000"} {
 		if _, err := ParseBytes(bad); err == nil {
 			t.Errorf("ParseBytes(%q) succeeded", bad)
 		}
@@ -40,11 +46,15 @@ func TestParseLimit(t *testing.T) {
 	if err != nil || l.Bytes != 50_000_000 || l.Resolve(1) != 50_000_000 || l.String() != "50 MB" {
 		t.Fatalf("bytes: %+v %v", l, err)
 	}
+	// A percentage too large to resolve is no limit, not a wrapped one.
+	if l, err := ParseLimit("1e300%"); err != nil || l.Resolve(1000) != math.MaxInt64 {
+		t.Errorf("huge percent: %+v %v resolves to %d", l, err, l.Resolve(1000))
+	}
 	l, err = ParseLimit("  ")
 	if err != nil || !l.IsZero() {
 		t.Fatalf("empty: %+v %v", l, err)
 	}
-	for _, bad := range []string{"x%", "-1%", "fast"} {
+	for _, bad := range []string{"x%", "-1%", "fast", "NaN%", "Inf%", "-Inf%", "1e20"} {
 		if _, err := ParseLimit(bad); err == nil {
 			t.Errorf("ParseLimit(%q) succeeded", bad)
 		}

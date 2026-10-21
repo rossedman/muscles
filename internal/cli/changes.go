@@ -2,6 +2,7 @@ package cli
 
 import "github.com/spf13/cobra"
 
+// newChangesCmd builds `muscles changes`, the noun for the files each layer changed.
 func newChangesCmd(a *app) *cobra.Command {
 	cmd := noun("changes", "Inspect the files each layer changed",
 		`Inspect the files each layer added, modified, stored again with the same
