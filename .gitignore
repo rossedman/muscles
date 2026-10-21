@@ -43,3 +43,6 @@ coverage.out
 /dist/
 /completions/
 /manpages/
+
+# make bench output
+bench.txt

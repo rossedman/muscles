@@ -124,7 +124,7 @@ Each layer's tar is streamed once and indexed (paths, sizes, modes, owners and a
 
 ## Contributing
 
-Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md); `make check`, `make cover` (90% or more) and `make lint` are what CI runs. For security issues, see [SECURITY.md](SECURITY.md).
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md); `make check`, `make cover` (90% or more), `make lint`, `make vuln` and `make fuzz` are what CI runs. For security issues, see [SECURITY.md](SECURITY.md).
 
 ## License
 

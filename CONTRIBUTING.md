@@ -37,9 +37,13 @@ Run these before you push; CI runs the same and fails a pull request on any
 of them:
 
 ```bash
-make check     # gofmt -l (must print nothing), go vet, go test
+make check     # gofmt -l (must print nothing), go vet, one command per file,
+               # a doc comment on every function, go test
 make cover     # total coverage must stay at 90% or more
 make lint      # golangci-lint (see .golangci.yml)
+make vuln      # govulncheck
+make bench-smoke  # every benchmark once
+make fuzz      # each fuzz target for 10s (CI: 30s; FUZZTIME=1m to change)
 make docs      # mkdocs build --strict, when docs/, overrides/ or mkdocs.yml change
                # (pip install -r docs/requirements.txt first)
 ```
@@ -63,6 +67,26 @@ make docs      # mkdocs build --strict, when docs/, overrides/ or mkdocs.yml cha
   that says why.
 
 [`REVIEW.md`](REVIEW.md) is the checklist reviews use.
+
+## Critical paths
+
+These functions read untrusted input or run once per file in an image, so
+a change to one needs a benchmark (compare with `make bench` and
+[benchstat](https://pkg.go.dev/golang.org/x/perf/cmd/benchstat) before and
+after), and the ones that read input need a fuzz target asserting real
+properties, not just "doesn't panic". A fuzzer's failing input goes in the
+package's `testdata/fuzz/` with the fix.
+
+| Function | Why | Benchmark | Fuzz |
+|---|---|---|---|
+| `index.ReadTar` | parses every layer tar, from anyone | ✓ | ✓ |
+| `pkgdb.Parse` (dpkg, apk, rpm) | parses package databases from images | ✓ | ✓ |
+| `dockerfile.Parse`, `dockerfile.Lines` | parses the user's Dockerfile | ✓ | ✓ |
+| `size.ParseBytes`, `size.ParseLimit` | parses budgets from flags, env and config | ✓ | ✓ |
+| `source.ParsePlatform` | parses `--platform` | ✓ | ✓ |
+| `analysis.Analyze` | replays every entry of every layer | ✓ | |
+| `analysis.RollupChanges`, `analysis.RollupWaste` | run over every change and waste item | ✓ | |
+| `compare.Images`, `compare.Filesystems` | compare two whole filesystems | ✓ | |
 
 ## Regenerating the docs graphics
 

@@ -1,4 +1,4 @@
-.PHONY: build test check fmt vet lint cover docs demo release-snapshot
+.PHONY: build test check fmt vet lint cover cmds doccheck vuln bench bench-smoke fuzz docs demo release-snapshot
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null)
@@ -16,7 +16,36 @@ fmt:
 vet:
 	go vet ./...
 
-check: fmt vet test
+check: fmt vet cmds doccheck test
+
+# One command per file in internal/cli.
+cmds:
+	./tools/check-cmds.sh
+
+# Every function, method and package has a doc comment.
+doccheck:
+	go run ./tools/doccheck ./...
+
+vuln:
+	go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+# Benchmarks, saved for benchstat: make bench; then compare bench.txt
+# against a later run with benchstat old.txt bench.txt.
+bench:
+	go test -run='^$$' -bench=. -benchmem -count=6 ./... | tee bench.txt
+
+# Every benchmark once, to prove they still run.
+bench-smoke:
+	go test -run='^$$' -bench=. -benchtime=1x ./...
+
+# Each fuzz target for FUZZTIME (go test fuzzes one target at a time).
+FUZZTIME ?= 10s
+fuzz:
+	@set -e; for pkg in $$(go list ./...); do \
+	  for t in $$(go test -list '^Fuzz' $$pkg | grep '^Fuzz' || true); do \
+	    echo "fuzz $$pkg $$t"; go test -run='^$$' -fuzz="^$$t$$" -fuzztime=$(FUZZTIME) $$pkg; \
+	  done; \
+	done
 
 lint:
 	golangci-lint run ./...
