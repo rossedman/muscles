@@ -127,6 +127,7 @@ func positional(cmd *cobra.Command, fs *pflag.FlagSet, argv []string, start int)
 	return -1
 }
 
+// lookupFlag finds a flag by long name, or by shorthand when name is empty, in fs and then the root's persistent flags.
 func lookupFlag(cmd *cobra.Command, fs *pflag.FlagSet, name, short string) *pflag.Flag {
 	for _, set := range []*pflag.FlagSet{fs, cmd.Root().PersistentFlags()} {
 		if name != "" {
@@ -140,6 +141,7 @@ func lookupFlag(cmd *cobra.Command, fs *pflag.FlagSet, name, short string) *pfla
 	return nil
 }
 
+// insert returns a copy of argv with words added at index at.
 func insert(argv []string, at int, words ...string) []string {
 	out := append([]string{}, argv[:at]...)
 	out = append(out, words...)
@@ -156,6 +158,7 @@ Nothing leaves your machine except reads from the registries you name.
 Credentials come from your Docker config and credential helpers, never
 from flags.`
 
+// newRootCmd builds `muscles`: the persistent flags, help and usage wiring, and every noun command.
 func newRootCmd(a *app) *cobra.Command {
 	cobra.EnableCommandSorting = false // list commands in workflow order
 	root := &cobra.Command{
@@ -255,6 +258,7 @@ func newRootCmd(a *app) *cobra.Command {
 	return root
 }
 
+// fixed returns a completion function that offers vals and no files.
 func fixed(vals ...string) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 	return func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 		return vals, cobra.ShellCompDirectiveNoFileComp

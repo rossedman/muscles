@@ -35,6 +35,7 @@ const (
 	Opaque
 )
 
+// String implements fmt.Stringer, returning the type's name.
 func (t Type) String() string {
 	return [...]string{"file", "dir", "symlink", "hardlink", "other", "whiteout", "opaque"}[t]
 }
@@ -179,12 +180,14 @@ func (ix Indexer) Index(ctx context.Context, img *source.Image) (*Image, error) 
 	return out, nil
 }
 
+// report sends p to the progress callback, if there is one.
 func (ix Indexer) report(p Progress) {
 	if ix.Progress != nil {
 		ix.Progress(p)
 	}
 }
 
+// short trims a digest to 12 hex characters for messages.
 func short(d string) string {
 	_, hex, _ := strings.Cut(d, ":")
 	if len(hex) > 12 {
@@ -198,6 +201,7 @@ type ctxReader struct {
 	r   io.Reader
 }
 
+// Read reads from the wrapped reader, failing once the context is done so a long layer read can be cancelled.
 func (c ctxReader) Read(p []byte) (int, error) {
 	if err := c.ctx.Err(); err != nil {
 		return 0, err

@@ -84,6 +84,7 @@ type Options struct {
 	Transport http.RoundTripper
 }
 
+// platform returns the requested platform, or linux on this machine's architecture.
 func (o Options) platform() v1.Platform {
 	if o.Platform != nil {
 		return *o.Platform
@@ -173,6 +174,7 @@ func looksLikePath(ref string) bool {
 
 var errBadRef = errors.New("invalid image reference")
 
+// parseRef parses an image reference, wrapping failures in errBadRef.
 func parseRef(ref string) (name.Reference, error) {
 	r, err := name.ParseReference(ref)
 	if err != nil {
@@ -181,6 +183,7 @@ func parseRef(ref string) (name.Reference, error) {
 	return r, nil
 }
 
+// openTar opens a `docker save` tarball holding one image.
 func openTar(path string) (v1.Image, error) {
 	if _, err := os.Stat(path); err != nil {
 		return nil, fmt.Errorf("%w: no tarball at %s", ErrNotFound, path)
@@ -192,6 +195,7 @@ func openTar(path string) (v1.Image, error) {
 	return img, nil
 }
 
+// openOCI opens an image from an OCI layout directory, with an optional :tag after the path, and picks the platform from a multi-platform index.
 func openOCI(target string, o Options) (v1.Image, error) {
 	dir, tag := target, ""
 	if i := strings.LastIndex(target, ":"); i > 0 && !strings.Contains(target[i:], string(filepath.Separator)) {
@@ -248,6 +252,7 @@ func pick(idx v1.ImageIndex, p v1.Platform, tag, where string) (v1.Image, error)
 	return nil, fmt.Errorf("%w: no %s image in %s; choose one with --platform (it has %s)", ErrNotFound, platformString(p), where, platforms(images))
 }
 
+// platformString formats a platform as os/arch[/variant].
 func platformString(p v1.Platform) string {
 	s := p.OS + "/" + p.Architecture
 	if p.Variant != "" {
@@ -256,6 +261,7 @@ func platformString(p v1.Platform) string {
 	return s
 }
 
+// platforms lists the platforms of an index's descriptors, for messages.
 func platforms(ds []v1.Descriptor) string {
 	var out []string
 	for _, d := range ds {
@@ -266,6 +272,7 @@ func platforms(ds []v1.Descriptor) string {
 	return strings.Join(out, ", ")
 }
 
+// openDaemon opens an image from the local Docker daemon.
 func openDaemon(ctx context.Context, ref string, o Options) (v1.Image, error) {
 	r, err := parseRef(ref)
 	if err != nil {
@@ -282,6 +289,7 @@ func openDaemon(ctx context.Context, ref string, o Options) (v1.Image, error) {
 	return img, nil
 }
 
+// openRemote opens an image from a registry without pulling its layers.
 func openRemote(ctx context.Context, ref string, o Options) (v1.Image, error) {
 	r, err := parseRef(ref)
 	if err != nil {

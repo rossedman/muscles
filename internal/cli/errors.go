@@ -35,14 +35,19 @@ type exitError struct {
 	silent bool // the command already printed its outcome
 }
 
+// Error returns the wrapped error's message.
 func (e *exitError) Error() string { return e.err.Error() }
+
+// Unwrap returns the wrapped error, so errors.Is and errors.As see through exitError.
 func (e *exitError) Unwrap() error { return e.err }
 
+// withCmd records the command that failed, so the error can show its usage, and returns e.
 func (e *exitError) withCmd(cmd *cobra.Command) *exitError {
 	e.cmd = cmd
 	return e
 }
 
+// usageErrorf returns a usage error, which exits with ExitUsage.
 func usageErrorf(format string, args ...any) *exitError {
 	return &exitError{code: ExitUsage, kind: "USAGE", err: fmt.Errorf(format, args...)}
 }

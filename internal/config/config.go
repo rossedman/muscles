@@ -225,6 +225,7 @@ func read(path string) (*viper.Viper, error) {
 	return sub, nil
 }
 
+// suggest returns a hint for an unknown key k: the closest known name, or a pointer to `muscles config list`.
 func suggest(k string, names []string) string {
 	best, bestD := "", 4
 	for _, n := range names {
@@ -286,6 +287,7 @@ func (c Config) IEC() bool { return c.Output.Units == "iec" }
 // CacheMax is the cache size cap in bytes.
 func (c Config) CacheMax() (int64, error) { return parse("cache.max_size", c.Cache.MaxSize) }
 
+// parse reads a byte size setting, treating "" as 0 and naming key in errors.
 func parse(key, s string) (int64, error) {
 	if s == "" {
 		return 0, nil
@@ -297,6 +299,7 @@ func parse(key, s string) (int64, error) {
 	return n, nil
 }
 
+// parseLimit reads a size limit setting (bytes or a percentage), naming key in errors.
 func parseLimit(key, s string) (size.Limit, error) {
 	l, err := size.ParseLimit(s)
 	if err != nil {

@@ -28,6 +28,7 @@ type cmdSchema struct {
 	Commands []cmdSchema  `json:"commands"`
 }
 
+// flagsOf lists the visible flags of a flag set for the JSON command tree, leaving out hidden flags and help.
 func flagsOf(fs *pflag.FlagSet) []flagSchema {
 	out := []flagSchema{}
 	fs.VisitAll(func(f *pflag.Flag) {
@@ -39,6 +40,7 @@ func flagsOf(fs *pflag.FlagSet) []flagSchema {
 	return out
 }
 
+// schemaOf builds the JSON description of a command and, recursively, its subcommands.
 func schemaOf(cmd *cobra.Command) cmdSchema {
 	s := cmdSchema{Name: cmd.Name(), Path: cmd.CommandPath(), Short: cmd.Short, Usage: cmd.UseLine(), Examples: []string{}, Commands: []cmdSchema{}}
 	for _, line := range strings.Split(cmd.Example, "\n") {
@@ -59,6 +61,7 @@ func schemaOf(cmd *cobra.Command) cmdSchema {
 	return s
 }
 
+// newHelpCmd builds `muscles help`, which shows a command's help or, with --json, the command tree.
 func newHelpCmd(a *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "help [command]",

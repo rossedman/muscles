@@ -220,6 +220,7 @@ type packageTracker struct {
 	prev    pkgdb.Set
 }
 
+// apply updates the tracker for one layer entry: whiteouts and opaque dirs drop the databases below them, and package database files replace what they declare.
 func (t *packageTracker) apply(e *index.Entry, layer int, declared map[string][]pkgdb.Pkg) {
 	switch e.Type {
 	case index.Whiteout:
@@ -366,6 +367,7 @@ type sizeNode struct {
 	kids  map[string]*sizeNode
 }
 
+// add counts size bytes under every directory along path p.
 func (n *sizeNode) add(p string, size int64) {
 	n.bytes += size
 	for _, part := range strings.Split(strings.TrimPrefix(p, "/"), "/") {
@@ -382,6 +384,7 @@ func (n *sizeNode) add(p string, size int64) {
 	}
 }
 
+// biggest returns the largest child and its name, breaking ties by the smaller name so output is stable.
 func (n *sizeNode) biggest() (string, *sizeNode) {
 	var (
 		name string

@@ -24,6 +24,7 @@ var wasteReason = map[analysis.ChangeType]string{
 	analysis.Deleted:  "deleted",
 }
 
+// newWasteListCmd builds `muscles waste list`, which lists wasted bytes, biggest first, with the layers responsible.
 func newWasteListCmd(a *app) *cobra.Command {
 	var (
 		files bool
@@ -72,6 +73,7 @@ size, path, count, reason, stored-in layer, hidden-by layer.` + "\n" + imageHelp
 	return cmd
 }
 
+// printWaste writes the waste rows in the chosen output format.
 func (a *app) printWaste(r *analysis.Report, rows []analysis.WasteRow) error {
 	f, _ := a.format()
 	if f == formatJSON {

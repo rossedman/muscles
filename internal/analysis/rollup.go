@@ -101,8 +101,10 @@ type rnode struct {
 	first      int
 }
 
+// dir reports whether the node is a directory rather than a single item.
 func (n *rnode) dir() bool { return n.leaf == nil }
 
+// child returns the named child at path p, creating it. A leaf turns into a directory first so it keeps its own entry.
 func (n *rnode) child(name, p string) *rnode {
 	if n.leaf != nil {
 		n.kids = map[string]*rnode{"\x00" + strconv.Itoa(n.leaf.idx): {path: n.path, leaf: n.leaf}}
@@ -119,6 +121,7 @@ func (n *rnode) child(name, p string) *rnode {
 	return k
 }
 
+// rollup groups items under their directories and collapses uniform directories into one row, returning at most limit groups (0 for all).
 func rollup(items []item, limit int) []group {
 	root := &rnode{path: "/"}
 	for i := range items {
@@ -185,6 +188,7 @@ func rollup(items []item, limit int) []group {
 	return out
 }
 
+// sortNodes orders nodes biggest first, then by path and first index, so output is stable.
 func sortNodes(ns []*rnode) {
 	sort.SliceStable(ns, func(i, j int) bool {
 		if ns[i].size != ns[j].size {
@@ -197,6 +201,7 @@ func sortNodes(ns []*rnode) {
 	})
 }
 
+// aggregate fills in size, count and uniformity for the node from its children, bottom up.
 func (n *rnode) aggregate() {
 	n.uniform, n.first = true, -1
 	if n.leaf != nil {

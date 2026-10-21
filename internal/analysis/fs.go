@@ -15,8 +15,10 @@ type node struct {
 	layer int
 }
 
+// isDir reports whether the node is a directory, including implied ones with no entry.
 func (n *node) isDir() bool { return n.e == nil || n.e.Type == index.Dir }
 
+// kind returns the node's type name; implied directories are "dir".
 func (n *node) kind() string {
 	if n.e == nil {
 		return index.Dir.String()
@@ -26,8 +28,10 @@ func (n *node) kind() string {
 
 type fsys struct{ root *node }
 
+// newFS returns an empty filesystem holding only the root directory.
 func newFS() *fsys { return &fsys{root: &node{kids: map[string]*node{}}} }
 
+// parts splits an absolute path into its elements.
 func parts(p string) []string { return strings.Split(strings.TrimPrefix(p, "/"), "/") }
 
 // lookup returns the node at p, or nil.

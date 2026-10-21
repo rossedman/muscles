@@ -126,6 +126,7 @@ func For(r *analysis.Report) Advice {
 	return adv
 }
 
+// filesAndBytes formats a file count and byte total, like "3 files, 1.2 MB".
 func filesAndBytes(n int, b int64) string {
 	if n == 1 {
 		return "1 file, " + size.Format(b, false)
@@ -133,8 +134,10 @@ func filesAndBytes(n int, b int64) string {
 	return fmt.Sprintf("%d files, %s", n, size.Format(b, false))
 }
 
+// storedIn names the layers that stored something, like "L2, L5".
 func storedIn(ls []int) string { return analysis.LayerNames(ls) }
 
+// layerNames sorts the layer set and names it like storedIn does.
 func layerNames(set map[int]bool) string {
 	var ls []int
 	for l := range set {

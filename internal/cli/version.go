@@ -8,6 +8,7 @@ import (
 	"github.com/rossedman/muscles/internal/version"
 )
 
+// newVersionCmd builds `muscles version`, which prints the version, commit and platform.
 func newVersionCmd(a *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

@@ -59,6 +59,7 @@ type Options struct {
 	Keychain authn.Keychain
 }
 
+// withDefaults fills in the standard streams for any that are nil.
 func (o Options) withDefaults() Options {
 	if o.Stdin == nil {
 		o.Stdin = os.Stdin
@@ -111,6 +112,7 @@ type app struct {
 	everyFix bool
 }
 
+// newApp builds the shared state for one run: options with defaults, a Viper instance with the settings registered, and the output streams.
 func newApp(opts Options, argv []string) *app {
 	opts = opts.withDefaults()
 	v := viper.New()
@@ -215,6 +217,7 @@ func (a *app) format() (string, error) {
 	return "", usageErrorf("invalid --output %q (use table, plain, json or markdown)", a.g.output)
 }
 
+// jsonOutput reports whether the chosen output format is JSON.
 func (a *app) jsonOutput() bool {
 	f, _ := a.format()
 	return f == formatJSON
@@ -240,6 +243,7 @@ func (a *app) render(f string, t *ui.Table, title string) error {
 // size formats bytes in the configured units.
 func (a *app) size(n int64) string { return size.Format(n, a.cfg.IEC()) }
 
+// delta formats a signed size change using the configured units.
 func (a *app) delta(n int64) string { return size.FormatDelta(n, a.cfg.IEC()) }
 
 // debugf prints detail on stderr only with --verbose.
@@ -433,6 +437,7 @@ func (a *app) stepCell(prefix string, l analysis.Layer) ui.Cell {
 	return ui.Cell{Text: prefix + a.stepWithLine(l), Tail: len(a.lineRef(l.Line))}
 }
 
+// shortDigest trims a digest to its algorithm and 12 hex characters.
 func shortDigest(d string) string {
 	if i := strings.Index(d, ":"); i >= 0 && len(d) > i+13 {
 		return d[:i+13]
@@ -452,6 +457,7 @@ type imageInfo struct {
 	Layers     int    `json:"layers"`
 }
 
+// infoOf summarizes a report as an imageInfo for JSON output.
 func infoOf(r *analysis.Report) imageInfo {
 	return imageInfo{Ref: r.Ref, Source: r.Source, Platform: r.Platform, Digest: r.Digest, Size: r.Size, Compressed: r.Compressed, Waste: r.Waste, Layers: len(r.Layers)}
 }

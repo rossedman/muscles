@@ -31,8 +31,10 @@ type CacheEntry struct {
 	Used   time.Time `json:"used"`
 }
 
+// dir returns the directory holding index files for the current cache format.
 func (c *Cache) dir() string { return filepath.Join(c.Dir, "layers", cacheFormat) }
 
+// file returns the path of the index file for diffID.
 func (c *Cache) file(diffID string) string {
 	return filepath.Join(c.dir(), strings.ReplaceAll(diffID, ":", "-")+".idx")
 }

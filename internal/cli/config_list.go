@@ -25,6 +25,7 @@ type configJSON struct {
 	Settings []settingJSON `json:"settings"`
 }
 
+// newConfigListCmd builds `muscles config list`, which lists every setting with its value and origin.
 func newConfigListCmd(a *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
@@ -63,6 +64,7 @@ setting: key, value, origin.`,
 	}
 }
 
+// valueString renders a setting's value for display, joining lists with commas.
 func valueString(v any) string {
 	switch x := v.(type) {
 	case []string:

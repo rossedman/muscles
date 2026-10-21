@@ -38,6 +38,7 @@ func Whiteout(path string) File {
 // Opaque returns the marker that hides everything below dir in lower layers.
 func Opaque(dir string) File { return File{Path: dir + "/.wh..wh..opq"} }
 
+// split separates a path into its directory, with trailing slash, and its base name.
 func split(p string) (string, string) {
 	for i := len(p) - 1; i >= 0; i-- {
 		if p[i] == '/' {
