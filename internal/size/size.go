@@ -26,6 +26,9 @@ var units = map[string]float64{
 	"tib": 1 << 40,
 }
 
+// maxInt64 is 2^63, the first float64 too large to convert to an int64.
+const maxInt64 = float64(1 << 63)
+
 // ParseBytes parses a byte count: a number with an optional SI (KB, MB, GB,
 // TB) or IEC (KiB, MiB, GiB, TiB) suffix. "1.5GB" is 1,500,000,000 bytes.
 func ParseBytes(s string) (int64, error) {
@@ -43,7 +46,16 @@ func ParseBytes(s string) (int64, error) {
 	if err != nil || f < 0 {
 		return 0, fmt.Errorf("invalid size %q (use a number with an optional unit, like 800MB or 1.5GiB)", s)
 	}
-	return int64(math.Round(f * mult)), nil
+	switch n := math.Round(f * mult); {
+	case n > maxInt64:
+		// Converting would wrap (to a negative budget on amd64).
+		return 0, fmt.Errorf("size %q is too large (the most is about 9.2 EB)", s)
+	case n == maxInt64:
+		// The nearest float64 to MaxInt64, as Format(math.MaxInt64) prints it.
+		return math.MaxInt64, nil
+	default:
+		return int64(n), nil
+	}
 }
 
 // Limit is a size budget: an absolute byte count or a percentage of a
@@ -61,7 +73,7 @@ func ParseLimit(s string) (Limit, error) {
 	}
 	if p, ok := strings.CutSuffix(t, "%"); ok {
 		f, err := strconv.ParseFloat(strings.TrimSpace(p), 64)
-		if err != nil || f < 0 {
+		if err != nil || f < 0 || math.IsNaN(f) || math.IsInf(f, 0) {
 			return Limit{}, fmt.Errorf("invalid percentage %q (use a number like 10%%)", s)
 		}
 		return Limit{Percent: f}, nil
@@ -79,7 +91,10 @@ func (l Limit) IsZero() bool { return l.Bytes == 0 && l.Percent == 0 }
 // Resolve returns the limit in bytes, taking a percentage of of.
 func (l Limit) Resolve(of int64) int64 {
 	if l.Percent != 0 {
-		return int64(math.Round(float64(of) * l.Percent / 100))
+		if n := math.Round(float64(of) * l.Percent / 100); n < maxInt64 {
+			return int64(n)
+		}
+		return math.MaxInt64 // a percentage that large is no limit at all
 	}
 	return l.Bytes
 }
