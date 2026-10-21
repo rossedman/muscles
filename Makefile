@@ -36,6 +36,6 @@ demo:
 	mkdir -p /tmp/muscles-demo
 	MUSCLES_DEMO_DIR=/tmp/muscles-demo go test ./internal/testimg -run TestWriteDemo -count=1
 
-# Build every release archive into dist/ without publishing (needs goreleaser).
+# Build every release archive into dist/ without publishing or signing (needs goreleaser).
 release-snapshot:
-	goreleaser release --snapshot --clean
+	goreleaser release --snapshot --clean --skip=sign

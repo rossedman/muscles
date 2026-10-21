@@ -41,7 +41,7 @@ With Go 1.26 or later:
 go install github.com/rossedman/muscles/cmd/muscles@latest
 ```
 
-As a container, for CI: `ghcr.io/rossedman/muscles`. Or download an archive from the [releases page](https://github.com/rossedman/muscles/releases); archives include shell completions and a man page.
+As a container, for CI: `ghcr.io/rossedman/muscles`. Or download an archive from the [releases page](https://github.com/rossedman/muscles/releases); archives include shell completions and a man page. Releases and the image are signed with cosign; [verifying a release](SECURITY.md#verifying-a-release) shows how to check them.
 
 It's a single static binary. Docker is optional.
 

@@ -16,7 +16,19 @@ With Go 1.26 or later:
 go install github.com/rossedman/muscles/cmd/muscles@latest
 ```
 
-Or download an archive for your platform from the [releases page](https://github.com/rossedman/muscles/releases) and put `muscles` on your `PATH`. Archives include shell completions and a man page.
+Or download an archive for your platform from the [releases page](https://github.com/rossedman/muscles/releases) and put `muscles` on your `PATH`. Archives include shell completions and a man page. Releases are signed with [cosign](https://docs.sigstore.dev); to check one before you run it:
+
+```bash
+VERSION=0.1.0   # the release you downloaded
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity "https://github.com/rossedman/muscles/.github/workflows/release.yml@refs/tags/v${VERSION}" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+sha256sum --ignore-missing -c checksums.txt
+```
+
+`--ignore-missing` checks only the archives you downloaded. [SECURITY.md](https://github.com/rossedman/muscles/blob/main/SECURITY.md#verifying-a-release) also covers the container image and build provenance.
 
 In CI, use the container image: `ghcr.io/rossedman/muscles`.
 

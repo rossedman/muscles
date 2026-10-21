@@ -21,6 +21,34 @@ Include what you can of:
 You'll get an answer within a week. A fix goes into a new release, and the
 advisory is published with it, crediting you unless you'd rather not be.
 
+## Verifying a release
+
+Releases are signed keylessly with [cosign](https://docs.sigstore.dev): the
+signature binds them to this repository's release workflow, with no keys to
+leak. `checksums.txt` lists every archive, and `checksums.txt.sigstore.json`
+signs it. Check the signature, then the archive you downloaded:
+
+```bash
+VERSION=0.1.0   # the release you downloaded
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity "https://github.com/rossedman/muscles/.github/workflows/release.yml@refs/tags/v${VERSION}" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+sha256sum --ignore-missing -c checksums.txt
+```
+
+The container image is signed the same way:
+
+```bash
+cosign verify ghcr.io/rossedman/muscles:0.1.0 \
+  --certificate-identity-regexp '^https://github\.com/rossedman/muscles/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Each archive also has [build provenance](https://slsa.dev):
+`gh attestation verify muscles_0.1.0_linux_amd64.tar.gz --repo rossedman/muscles`.
+
 ## Supported versions
 
 Fixes go into the latest release only.
