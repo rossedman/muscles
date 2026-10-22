@@ -105,6 +105,8 @@ jobs:
           ./muscles layers list muscles.tar -o markdown >> "$GITHUB_STEP_SUMMARY"
       - name: Check it
         run: ./muscles images check muscles.tar
+      - name: SARIF for it
+        run: ./muscles images check muscles.tar --dockerfile Dockerfile -o sarif | jq -e '.version == "2.1.0" and (.runs[0].results | type == "array")'
       # The action from this checkout, with the muscles just built.
       - run: echo "$PWD" >> "$GITHUB_PATH"
       - uses: ./

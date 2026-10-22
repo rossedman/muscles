@@ -10,7 +10,9 @@ import (
 
 	"github.com/rossedman/muscles/internal/analysis"
 	"github.com/rossedman/muscles/internal/check"
+	"github.com/rossedman/muscles/internal/sarif"
 	"github.com/rossedman/muscles/internal/ui"
+	"github.com/rossedman/muscles/internal/version"
 )
 
 type checkJSON struct {
@@ -24,8 +26,9 @@ type checkJSON struct {
 func newImagesCheckCmd(a *app) *cobra.Command {
 	var baseline string
 	cmd := &cobra.Command{
-		Use:   "check IMAGE",
-		Short: "Check an image against budgets and forbidden paths, for CI",
+		Annotations: map[string]string{"sarif": "yes"},
+		Use:         "check IMAGE",
+		Short:       "Check an image against budgets and forbidden paths, for CI",
 		Long: `Check IMAGE against the budgets in .muscles.yaml (or the flags below) and
 exit 5 if any fails. Checks that aren't configured are skipped; layer notes
 (package caches, deletions that free nothing, permission-only rewrites,
@@ -71,7 +74,12 @@ status, rule, result, detail, fix, dockerfile line (0 if unknown).` + "\n" + ima
 				}
 			}
 			rep := check.Run(img, base, budget, a.cfg.IEC())
-			if err := a.printCheck(rep); err != nil {
+			if f, _ := a.format(); f == formatSARIF {
+				err = a.printJSON(sarif.Build(rep, version.Get().Version, a.locate(cmd)))
+			} else {
+				err = a.printCheck(rep)
+			}
+			if err != nil {
 				return err
 			}
 			if !rep.OK() {
@@ -94,6 +102,48 @@ status, rule, result, detail, fix, dockerfile line (0 if unknown).` + "\n" + ima
 	fl.Int("max-layers", 0, "fail above this many layers")
 	bindFlag(fl, "max-layers", "check.max_layers")
 	return cmd
+}
+
+// budgetKeys are the settings behind each budget rule, for pointing a
+// finding at the line of .muscles.yaml that set it.
+var budgetKeys = map[string]string{
+	"size": "check.max_size", "compressed": "check.max_compressed", "waste": "check.max_waste",
+	"growth": "check.max_growth", "layers": "check.max_layers", "forbid": "check.forbid",
+}
+
+// locate says where a SARIF finding lives in the repository: the Dockerfile
+// line that made the layer at fault, else the line of the project file that
+// set the budget, else the top of the Dockerfile or the project file. Code
+// scanning needs a file for every finding, and only shows files in the
+// repository, so files outside it are never used.
+func (a *app) locate(cmd *cobra.Command) sarif.Locate {
+	inRepo := func(p string) string {
+		if p == "" {
+			return ""
+		}
+		if rel := workspacePath(p); !filepath.IsAbs(rel) {
+			return rel
+		}
+		return ""
+	}
+	return func(r check.Result) sarif.Where {
+		df, project := inRepo(a.cfg.Dockerfile), inRepo(a.files.Project)
+		if df != "" && r.Line > 0 {
+			return sarif.Where{File: df, Line: r.Line}
+		}
+		if key := budgetKeys[r.Rule]; key != "" && project != "" && strings.HasPrefix(a.origin(cmd, key), "project ") {
+			if line := a.files.ProjectLine(key); line > 0 {
+				return sarif.Where{File: project, Line: line}
+			}
+		}
+		switch {
+		case df != "":
+			return sarif.Where{File: df, Line: 1}
+		case project != "":
+			return sarif.Where{File: project, Line: 1}
+		}
+		return sarif.Where{}
+	}
 }
 
 // printCheck writes the check results in the chosen format, adding GitHub Actions annotations when it runs there.

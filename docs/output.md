@@ -8,6 +8,7 @@ Every command renders the same values four ways. Choose with `-o` / `--output`, 
 | `plain` | Default when stdout isn't a terminal | One tab-separated record per line, no header, no color, exact byte counts. For `cut`, `sort`, `awk` and `grep`. |
 | `json` | `--json` or `-o json` | One JSON object. |
 | `markdown` | `-o markdown` | GitHub-flavored Markdown tables, for pull requests and job summaries. |
+| `sarif` | `-o sarif`, `images check` only | A SARIF 2.1.0 log of the failures and warnings, for code scanning. |
 
 ## Plain
 
@@ -95,3 +96,23 @@ Markdown output has a heading and a table; `images inspect` is a numbered list o
 ```sh
 muscles images diff ghcr.io/acme/app:main app.tar -o markdown >> "$GITHUB_STEP_SUMMARY"
 ```
+
+## SARIF
+
+`muscles images check IMAGE -o sarif` writes a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) log, the format GitHub code scanning, GitLab, Azure DevOps and editor viewers read. The exit code is the same as with any other format: 5 when a rule fails.
+
+```sh
+muscles images check app.tar --dockerfile Dockerfile -o sarif > muscles.sarif
+```
+
+- **Results** are the failures (level `error`) and warnings (level `warning`). Rules that passed or were skipped are left out: SARIF lists findings.
+- **Rules** have ids like `muscles/size`, `muscles/forbid` and `muscles/package-cache`, with a description, the fix, and a link to these docs.
+- **Locations** are files in the repository, relative to `$GITHUB_WORKSPACE` (or the working directory), because code scanning shows findings in the repository's files:
+    1. the Dockerfile line that made the layer at fault (with `--dockerfile`),
+    2. else the line of `.muscles.yaml` that set the budget, when it was set there,
+    3. else the first line of the Dockerfile, or of `.muscles.yaml`.
+
+    With no Dockerfile and no project file in the repository, results have no location, and GitHub code scanning won't accept them: set `dockerfile` in `.muscles.yaml`.
+- **Fingerprints** (`partialFingerprints["muscles/v1"]`) come from the rule and what it is about (a forbidden path, or a layer's step and the note's path), never sizes or the image's name, so a finding stays one alert from build to build, and a fixed one closes.
+
+Each result has `properties.image` and, when a layer is at fault, `properties.layer`.

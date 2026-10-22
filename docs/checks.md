@@ -78,3 +78,5 @@ muscles images check app.tar --json | jq '.results[] | select(.status == "fail")
 ```
 
 The JSON report has `ok`, `failed`, `warnings` and one result per rule with `rule`, `status` (`pass`, `fail`, `warn`, `skip`), `message`, `detail`, `fix`, and `layer` and `dockerfile_line` when a layer is at fault.
+
+`-o sarif` writes the failures and warnings as a SARIF log for GitHub code scanning and other tools, each at the Dockerfile line or the `.muscles.yaml` budget responsible. See [SARIF](output.md#sarif), and [CI](ci.md#code-scanning) to upload it.

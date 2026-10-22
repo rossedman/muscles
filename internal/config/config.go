@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/spf13/viper"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/rossedman/muscles/internal/analysis"
 	"github.com/rossedman/muscles/internal/check"
@@ -110,6 +111,41 @@ func (f Files) Origin(key string) string {
 		return "user " + f.User
 	}
 	return "default"
+}
+
+// ProjectLine returns the 1-based line where key is set in the project
+// file, or 0 when the file doesn't set it or can't be read. Keys are
+// nested mappings (check: then max_size:), as the files are written.
+func (f Files) ProjectLine(key string) int {
+	if f.project == nil || !f.project.InConfig(key) {
+		return 0
+	}
+	data, err := os.ReadFile(f.Project)
+	if err != nil {
+		return 0
+	}
+	var doc yaml.Node
+	if yaml.Unmarshal(data, &doc) != nil || len(doc.Content) == 0 {
+		return 0
+	}
+	node := doc.Content[0]
+	line := 0
+	for _, part := range strings.Split(key, ".") {
+		next := (*yaml.Node)(nil)
+		if node.Kind == yaml.MappingNode {
+			for i := 0; i+1 < len(node.Content); i += 2 {
+				if strings.EqualFold(node.Content[i].Value, part) {
+					line, next = node.Content[i].Line, node.Content[i+1]
+					break
+				}
+			}
+		}
+		if next == nil {
+			return 0
+		}
+		node = next
+	}
+	return line
 }
 
 // Setup installs defaults and environment bindings on v.

@@ -100,6 +100,10 @@ rpm keeps its database in SQLite, Berkeley DB or its own ndb format depending on
 
 A `Next:` line helps someone exploring at a terminal and is noise in logs, so it is printed on stderr only when stderr is a terminal, and never with `--quiet`.
 
+### D15. SARIF for findings only, at a line of the repository
+
+SARIF is a log of findings, so only `images check` writes it, and only its failures and warnings; other commands refuse `-o sarif` rather than invent findings. Code scanning shows a finding only in a file of the repository, so each one is placed at the most specific line muscles knows (the Dockerfile line that made the layer, else the `.muscles.yaml` line that set the budget, else the top of either) and never at a file outside the checkout. Its fingerprint hashes the rule and what the finding is about, never sizes or the image's name, which change every build: a waste warning that grows from 9 MB to 12 MB is the same alert, and one that's fixed closes.
+
 ## Testing
 
 Total coverage must stay at 90% or more (CI enforces it). Images for tests are built in memory by `internal/testimg`; the registry tests use go-containerregistry's in-memory registry; the daemon is faked through `cli.Options`. Command tests drive `cli.Run` with buffers and a fake terminal.

@@ -183,8 +183,12 @@ func newRootCmd(a *app) *cobra.Command {
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			a.setStreams(a.g.noColor)
 			a.status.quiet = a.quiet()
-			if _, err := a.format(); err != nil {
+			f, err := a.format()
+			if err != nil {
 				return err.(*exitError).withCmd(cmd)
+			}
+			if f == formatSARIF && cmd.Annotations["sarif"] != "yes" {
+				return usageErrorf("-o sarif is for `muscles images check` only: SARIF reports findings").withCmd(cmd)
 			}
 			if a.g.timeout > 0 {
 				ctx, cancel := context.WithTimeout(cmd.Context(), a.g.timeout)

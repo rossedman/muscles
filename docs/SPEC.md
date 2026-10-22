@@ -86,7 +86,7 @@ Following CLI Style §1 and §5, commands are `muscles <noun> <verb> <target> --
 | `cache list`, `cache delete [--preview]` | The layer index cache. |
 | `help [COMMAND] [--json]`, `version [--json]`, `completion SHELL` | Self-documentation (CLI Style §23 to §26). |
 
-Global flags: `-o/--output table|plain|json|markdown`, `--json` (wins over `--output`), `--source`, `--platform`, `--config`, `--cache-dir`, `--dockerfile`, `--fresh`, `--timeout`, `--no-color`, `-q/--quiet`, `-v/--verbose` (wins over `--quiet`).
+Global flags: `-o/--output table|plain|json|markdown` (and `sarif` for `images check`), `--json` (wins over `--output`), `--source`, `--platform`, `--config`, `--cache-dir`, `--dockerfile`, `--fresh`, `--timeout`, `--no-color`, `-q/--quiet`, `-v/--verbose` (wins over `--quiet`).
 
 Shortcuts: `muscles IMAGE` is `muscles images inspect IMAGE`; `muscles layers|changes|waste IMAGE` runs that noun's `list`. A word that is or nearly is a command is never taken as an image. At a terminal, commands end with a `Next:` hint on stderr.
 

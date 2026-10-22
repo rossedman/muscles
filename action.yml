@@ -25,6 +25,14 @@ inputs:
     description: On pull requests, post the report as a comment, updated in place on every push.
     required: false
     default: "true"
+  sarif:
+    description: Upload the check results to GitHub code scanning as SARIF, instead of annotating the run. Needs check true and security-events write.
+    required: false
+    default: "false"
+  sarif-category:
+    description: The code scanning category; give each image its own when one workflow checks several.
+    required: false
+    default: muscles
   args:
     description: More arguments for `muscles images check`, like `--max-size 800MB`.
     required: false
@@ -62,6 +70,9 @@ outputs:
   report:
     description: Path of the Markdown report.
     value: ${{ steps.report.outputs.report }}
+  sarif:
+    description: Path of the SARIF log, when sarif is true.
+    value: ${{ steps.check.outputs.sarif }}
 
 runs:
   using: composite
@@ -101,10 +112,22 @@ runs:
         IMAGE: ${{ inputs.image }}
         BASELINE: ${{ inputs.baseline }}
         ARGS: ${{ inputs.args }}
+        SARIF: ${{ inputs.sarif }}
         REPORT: ${{ steps.report.outputs.report }}
         MUSCLES_DOCKERFILE: ${{ inputs.dockerfile }}
         MUSCLES_CACHE_DIR: ${{ inputs.cache == 'true' && format('{0}/muscles-cache', runner.temp) || '' }}
       run: '"$GITHUB_ACTION_PATH/scripts/action/check.sh"'
+
+    # A token that can't write security events (a fork's pull request) only
+    # loses the upload; the check still decides the step.
+    - name: Upload to code scanning
+      if: inputs.sarif == 'true' && steps.check.outputs.sarif != ''
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+      with:
+        sarif_file: ${{ steps.check.outputs.sarif }}
+        category: ${{ inputs.sarif-category }}
+        token: ${{ inputs.token }}
 
     - name: Comment on the pull request
       if: inputs.comment == 'true' && github.event.pull_request.number

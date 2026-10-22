@@ -121,6 +121,16 @@ func TestFixes(t *testing.T) {
 			fixes[x.Rule] = x
 		}
 	}
+	// Keys identify findings across builds, without sizes or image names.
+	if fixes["size"].Key != "" || fixes["forbid"].Key != "/app/models/base.onnx" || !strings.HasPrefix(fixes["package cache"].Key, "RUN apt-get update") || !strings.HasSuffix(fixes["package cache"].Key, "\x00/var/lib/apt/lists") {
+		t.Errorf("keys: size %q, forbid %q, package cache %q", fixes["size"].Key, fixes["forbid"].Key, fixes["package cache"].Key)
+	}
+	more := Run(base, nil, Budget{Forbid: []string{"**"}}, false)
+	for _, x := range more.Results {
+		if strings.Contains(x.Message, "more paths match") && x.Key != "**" {
+			t.Errorf("the rest of a pattern's matches: %+v", x)
+		}
+	}
 	if !strings.Contains(fixes["size"].Fix, "muscles images inspect app:1") {
 		t.Errorf("size fix: %+v", fixes["size"])
 	}
