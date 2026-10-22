@@ -75,7 +75,7 @@ muscles images check app.tar --baseline ghcr.io/acme/app:main
 | `muscles help [COMMAND] [--json]` | Full help, or the command tree as JSON |
 | `muscles version [--json]` | Version, commit and platform |
 
-Every command takes `-o table|plain|json|markdown` (or `--json`), and `--dockerfile Dockerfile` to point layers and fixes at their lines. `muscles layers IMAGE` is short for `muscles layers list IMAGE` (and the same for `changes` and `waste`). See the [CLI reference](https://rossedman.io/muscles/cli/).
+Every command takes `-o table|plain|json|markdown` (or `--json`), `images check` also takes `-o sarif` for GitHub code scanning, and `--dockerfile Dockerfile` to point layers and fixes at their lines. `muscles layers IMAGE` is short for `muscles layers list IMAGE` (and the same for `changes` and `waste`). See the [CLI reference](https://rossedman.io/muscles/cli/).
 
 `IMAGE` is a daemon tag (`app:dev`), a registry reference (`ghcr.io/acme/app:main`), a tarball (`app.tar`) or an OCI layout (`./out`, `oci://./out:tag`).
 

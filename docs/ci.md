@@ -67,11 +67,44 @@ It:
 | `version` | the action's tag | The muscles release to install, or `latest`. |
 | `install` | `true` | `false` uses the `muscles` already on `PATH`. |
 | `cache` | `true` | Cache layer indexes with `actions/cache`. |
-| `token` | `github.token` | Token for the release download and the comment. |
+| `sarif` | `false` | Upload the check results to GitHub code scanning instead of annotating the run. Needs `check` and `security-events: write`. |
+| `sarif-category` | `muscles` | The code scanning category. Give each image its own when one workflow checks several. |
+| `token` | `github.token` | Token for the release download, the comment and the SARIF upload. |
 
-Outputs: `ok` (`true` or `false`), `size`, `waste` and `size-delta` in bytes, and `report`, the path of the Markdown report.
+Outputs: `ok` (`true` or `false`), `size`, `waste` and `size-delta` in bytes, `report`, the path of the Markdown report, and `sarif`, the path of the SARIF log when `sarif` is on.
 
 The action runs on Linux and macOS runners. With several images in one workflow, each gets its own comment.
+
+### Code scanning
+
+With `sarif: true`, check results become [code scanning](https://docs.github.com/en/code-security/code-scanning) alerts instead of annotations. Annotations last one run; alerts persist. They show on the pull request's diff at the Dockerfile line (or the `.muscles.yaml` budget) responsible, are listed in the repository's Security tab, close by themselves when a later build fixes them, and can be dismissed with a reason.
+
+```yaml
+    permissions:
+      contents: read
+      security-events: write  # to upload SARIF
+    steps:
+      # ... build app.tar ...
+      - uses: rossedman/muscles@v0.0.4
+        with:
+          image: app.tar
+          dockerfile: Dockerfile
+          sarif: true
+```
+
+The check still fails the step when a budget fails. Code scanning is free on public repositories and needs GitHub Advanced Security on private ones. On pull requests from forks the token can't upload; the action warns and carries on.
+
+Keep `image` (or `sarif-category`) the same from build to build: code scanning matches alerts by category, so a category that changed (`app:pr-12`, then `app:pr-13`) starts over instead of closing fixed alerts. A tarball name such as `app.tar` stays the same.
+
+Without the action, upload the log yourself:
+
+```yaml
+      - run: muscles images check app.tar --dockerfile Dockerfile -o sarif > muscles.sarif || true
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: muscles.sarif
+          category: muscles
+```
 
 ### Without the action
 

@@ -25,7 +25,7 @@ docs/, overrides/    the site; mkdocs.yml is its nav
 tools/               repo checks: doccheck, check-cmds.sh
 ```
 
-`docs/design.md` explains the decisions (D1 to D9); read the relevant one
+`docs/design.md` explains the decisions (D1 to D15); read the relevant one
 before changing a design. The CLI follows https://cli.style.
 
 ## Checks

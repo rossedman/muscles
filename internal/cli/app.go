@@ -195,6 +195,7 @@ const (
 	formatPlain    = "plain"
 	formatJSON     = "json"
 	formatMarkdown = "markdown"
+	formatSARIF    = "sarif" // images check only
 )
 
 // format is the output format: --json beats --output; by default a table
@@ -209,12 +210,12 @@ func (a *app) format() (string, error) {
 		}
 		return formatPlain, nil
 	}
-	for _, f := range []string{formatTable, formatPlain, formatJSON, formatMarkdown} {
+	for _, f := range []string{formatTable, formatPlain, formatJSON, formatMarkdown, formatSARIF} {
 		if a.g.output == f {
 			return f, nil
 		}
 	}
-	return "", usageErrorf("invalid --output %q (use table, plain, json or markdown)", a.g.output)
+	return "", usageErrorf("invalid --output %q (use table, plain, json, markdown or sarif)", a.g.output)
 }
 
 // jsonOutput reports whether the chosen output format is JSON.

@@ -145,3 +145,34 @@ func TestHelpers(t *testing.T) {
 		t.Fatalf("DefaultDirs fallback: %+v", d)
 	}
 }
+
+func TestProjectLine(t *testing.T) {
+	d := dirs(t)
+	p := filepath.Join(d.Cwd, ".muscles.yaml")
+	os.WriteFile(p, []byte("# budgets\nplatform: linux/amd64\ncheck:\n  max_size: 800MB\n\n  forbid:\n    - \"**/.env\"\n"), 0o644)
+	_, files, err := load(t, d, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]int{"check.max_size": 4, "check.forbid": 6, "platform": 2, "check.max_waste": 0, "source": 0} {
+		if got := files.ProjectLine(key); got != want {
+			t.Errorf("%s: line %d, want %d", key, got, want)
+		}
+	}
+	// The file is gone, or isn't a mapping where the key should be.
+	os.Remove(p)
+	if files.ProjectLine("check.max_size") != 0 {
+		t.Error("missing file")
+	}
+	os.WriteFile(p, []byte("check: [1, 2]\n"), 0o644)
+	if files.ProjectLine("check.max_size") != 0 {
+		t.Error("sequence")
+	}
+	os.WriteFile(p, []byte(": : :\n\t"), 0o644)
+	if files.ProjectLine("check.max_size") != 0 {
+		t.Error("invalid YAML")
+	}
+	if (Files{}).ProjectLine("check.max_size") != 0 {
+		t.Error("no project file")
+	}
+}

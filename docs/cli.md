@@ -54,7 +54,7 @@ It is printed only when stderr is a terminal, never in pipes, CI logs or with `-
 
 | Flag | Meaning |
 |---|---|
-| `-o, --output FORMAT` | `table`, `plain`, `json` or `markdown`. Default: `table` on a terminal, `plain` otherwise. |
+| `-o, --output FORMAT` | `table`, `plain`, `json` or `markdown`, and `sarif` for `images check`. Default: `table` on a terminal, `plain` otherwise. |
 | `--json` | Shorthand for `--output json`. Wins over `--output`. |
 | `--source KIND` | `auto`, `docker`, `remote`, `tar` or `oci`. Config key `source`. |
 | `--platform OS/ARCH[/VARIANT]` | Platform of a multi-platform image. Default: Linux on this machine's architecture. Config key `platform`. |
@@ -139,7 +139,7 @@ muscles images check IMAGE [--baseline IMAGE] [--max-size SIZE] [--max-compresse
 
 Each `--max-*` flag overrides the matching `check.*` setting. Exits 5 if a rule fails. Every failure and warning says how to fix it, in a **How to fix** section after the table.
 
-Plain output: `status, rule, result, detail, fix, dockerfile line`, one line per rule. See [Checks and budgets](checks.md).
+Plain output: `status, rule, result, detail, fix, dockerfile line`, one line per rule. `-o sarif` writes the failures and warnings as a SARIF 2.1.0 log for code scanning ([SARIF](output.md#sarif)); other commands refuse it. See [Checks and budgets](checks.md).
 
 ## config list
 

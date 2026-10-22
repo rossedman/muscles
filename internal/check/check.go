@@ -67,6 +67,10 @@ type Result struct {
 	Fix     string `json:"fix,omitempty"`             // what to change, for a fail or warn
 	Layer   *int   `json:"layer,omitempty"`           // the layer at fault, when there is one
 	Line    int    `json:"dockerfile_line,omitempty"` // that layer's Dockerfile line, when known
+	// Key identifies the finding across builds, for code scanning to track
+	// it: the forbidden path, or the step and path of a layer note. Sizes
+	// and image names are left out because they change from build to build.
+	Key string `json:"-"`
 }
 
 // Report is the outcome of every rule.
@@ -144,19 +148,20 @@ func Run(img, base *analysis.Report, b Budget, iec bool) Report {
 		}
 		for i, h := range hits {
 			if i == 5 {
-				add(Result{Rule: "forbid", Status: Fail, Message: fmt.Sprintf("%d more paths match %q", len(hits)-5, pat)})
+				add(Result{Rule: "forbid", Status: Fail, Message: fmt.Sprintf("%d more paths match %q", len(hits)-5, pat), Key: pat})
 				break
 			}
 			e := img.Final[h]
 			layer := e.Layer
 			add(Result{Rule: "forbid", Status: Fail, Message: fmt.Sprintf("%s matches %q", h, pat), Detail: fmt.Sprintf("added in L%d %s", e.Layer, img.Layers[e.Layer].Step),
-				Fix: fmt.Sprintf("Keep it out of the build context with .dockerignore, or stop adding it in L%d.", e.Layer), Layer: &layer})
+				Fix: fmt.Sprintf("Keep it out of the build context with .dockerignore, or stop adding it in L%d.", e.Layer), Layer: &layer, Key: h})
 		}
 	}
 	for _, l := range img.Layers {
 		for _, n := range l.Notes {
 			layer := l.Index
-			add(Result{Rule: strings.ReplaceAll(n.Kind, "_", " "), Status: Warn, Message: n.Message, Detail: fmt.Sprintf("L%d %s", l.Index, l.Step), Fix: n.Fix, Layer: &layer})
+			add(Result{Rule: strings.ReplaceAll(n.Kind, "_", " "), Status: Warn, Message: n.Message, Detail: fmt.Sprintf("L%d %s", l.Index, l.Step), Fix: n.Fix, Layer: &layer,
+				Key: l.Step + "\x00" + n.Path})
 		}
 	}
 	return rep
