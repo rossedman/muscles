@@ -25,6 +25,8 @@ Settings and more
   muscles completion SHELL         bash, zsh, fish or powershell
 ```
 
+Every command also runs as `docker muscles ...` once the [Docker plugin](docker-plugin.md) is installed.
+
 `IMAGE` is a local daemon tag, a registry reference, a tarball or an OCI layout; see [Where images come from](getting-started.md#where-images-come-from). If you leave out a required argument at a terminal, muscles asks for it and then shows the full command; without a terminal it exits 2 and names what's missing.
 
 ## Shortcuts

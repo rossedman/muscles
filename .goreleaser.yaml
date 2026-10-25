@@ -9,8 +9,13 @@ before:
     - go mod download
     - ./scripts/extras.sh
 
+# Two binaries: muscles, and docker-muscles, the same CLI as a Docker CLI
+# plugin (docs/docker-plugin.md). Archives carry both.
 builds:
-  - main: ./cmd/muscles
+  - &build
+    id: muscles
+    main: ./cmd/muscles
+    binary: muscles
     env:
       - CGO_ENABLED=0
     goos: [darwin, linux, windows]
@@ -21,6 +26,10 @@ builds:
       - -X github.com/rossedman/muscles/internal/version.Version={{ .Tag }}
       - -X github.com/rossedman/muscles/internal/version.Commit={{ .ShortCommit }}
     mod_timestamp: "{{ .CommitTimestamp }}"
+  - <<: *build
+    id: docker-muscles
+    main: ./cmd/docker-muscles
+    binary: docker-muscles
 
 archives:
   - formats: [tar.gz]
@@ -46,9 +55,11 @@ signs:
     signature: "${artifact}.sigstore.json"
     args: ["sign-blob", "--bundle=${signature}", "${artifact}", "--yes"]
 
-# A multi-arch image for CI systems that run steps in containers.
+# A multi-arch image for CI systems that run steps in containers: muscles
+# only, not the plugin.
 dockers_v2:
-  - images:
+  - ids: [muscles]
+    images:
       - ghcr.io/rossedman/muscles
     tags:
       - "{{ .Version }}"
@@ -93,6 +104,8 @@ release:
   footer: |
     Install with Homebrew (`brew install rossedman/tap/muscles`), `go install github.com/rossedman/muscles/cmd/muscles@{{ .Tag }}`,
     the container image (`ghcr.io/rossedman/muscles:{{ .Version }}`), or download an archive below and put `muscles` on your PATH.
+    As a Docker CLI plugin (`docker muscles ...`): archives and the cask include `docker-muscles`, or `go install github.com/rossedman/muscles/cmd/docker-muscles@{{ .Tag }}`;
+    then see https://rossedman.io/muscles/docker-plugin/ to enable it.
     Docs: https://rossedman.io/muscles/
 
 # A Homebrew cask in rossedman/homebrew-tap. It's skipped until the
@@ -112,6 +125,13 @@ homebrew_casks:
       name: goreleaserbot
       email: bot@goreleaser.com
     commit_msg_template: "muscles {{ .Tag }}"
+    binaries: [muscles, docker-muscles]
+    caveats: |
+      To run muscles as `docker muscles`, enable the Docker CLI plugin, either:
+        mkdir -p ~/.docker/cli-plugins
+        ln -sfn "$(brew --prefix)/bin/docker-muscles" ~/.docker/cli-plugins/docker-muscles
+      or add "cliPluginsExtraDirs": ["$(brew --prefix)/bin"] to ~/.docker/config.json
+      (with the prefix spelled out).
     completions:
       bash: completions/muscles.bash
       zsh: completions/muscles.zsh
@@ -123,4 +143,5 @@ homebrew_casks:
         install_steps: |
           on_macos do
             run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/muscles"]
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/docker-muscles"]
           end

@@ -97,12 +97,20 @@ jobs:
           make build
           mkdir -p linux/amd64
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o linux/amd64/muscles ./cmd/muscles
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o linux/amd64/docker-muscles ./cmd/docker-muscles
           docker build --platform linux/amd64 -t muscles:ci .
           docker save muscles:ci -o muscles.tar
       - name: Explain it
         run: |
           ./muscles layers list muscles:ci          # from the Docker daemon
           ./muscles layers list muscles.tar -o markdown >> "$GITHUB_STEP_SUMMARY"
+      # The Docker plugin: docker finds it, and it prints what muscles prints.
+      - name: Explain it as a Docker plugin
+        run: |
+          mkdir -p ~/.docker/cli-plugins
+          cp linux/amd64/docker-muscles ~/.docker/cli-plugins/
+          docker --help | grep -q '^  muscles'
+          diff <(./muscles layers list muscles:ci) <(docker muscles layers list muscles:ci)
       - name: Check it
         run: ./muscles images check muscles.tar
       - name: SARIF for it

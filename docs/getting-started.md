@@ -107,6 +107,8 @@ muscles reads the same image from wherever it is:
 
 Force one with a prefix (`docker://`, `registry://`, `tar://`, `oci://`) or `--source`. For multi-platform images, muscles picks Linux on your machine's architecture; choose another with `--platform linux/arm64`.
 
+For `app:dev`, `muscles` talks to the daemon at `DOCKER_HOST`, or the default socket; it doesn't read Docker contexts. `docker muscles`, the [Docker plugin](docker-plugin.md), follows your active Docker context the way `docker` does.
+
 Registry credentials come from your Docker config and credential helpers, the same ones `docker pull` uses. If a registry says no, `docker login` to it.
 
 ## Scripts and machines

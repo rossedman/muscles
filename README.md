@@ -45,6 +45,10 @@ As a container, for CI: `ghcr.io/rossedman/muscles`. Or download an archive from
 
 It's a single static binary. Docker is optional.
 
+### As a Docker plugin
+
+Releases also include `docker-muscles`, the same CLI as a Docker CLI plugin. Put it in `~/.docker/cli-plugins/` and run `docker muscles layers app:dev`; it reads images from the daemon of your active Docker context. Homebrew installs it too; with Go, `go install github.com/rossedman/muscles/cmd/docker-muscles@latest`. See [Docker plugin](https://rossedman.io/muscles/docker-plugin/).
+
 ## Quick start
 
 ```sh

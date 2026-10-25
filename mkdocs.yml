@@ -27,6 +27,7 @@ nav:
       - Finding waste: waste.md
       - Comparing images: diff.md
       - CI: ci.md
+      - Docker plugin: docker-plugin.md
       - Checks and budgets: checks.md
       - How it works: how-it-works.md
   - Reference:

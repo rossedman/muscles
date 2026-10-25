@@ -2,7 +2,7 @@
 
 Releases are built by [GoReleaser](https://goreleaser.com) from a version tag. Each one publishes:
 
-- archives for macOS, Linux and Windows on amd64 and arm64, each with the binary, shell completions (bash, zsh, fish) and a man page,
+- archives for macOS, Linux and Windows on amd64 and arm64, each with both binaries (`muscles` and the [Docker plugin](docker-plugin.md), `docker-muscles`), shell completions (bash, zsh, fish) and a man page,
 - `checksums.txt`, signed keylessly with cosign (`checksums.txt.sigstore.json`), and build provenance for every archive,
 - a multi-arch container image, `ghcr.io/rossedman/muscles:<version>` and `:latest`, signed with cosign, for CI systems that run steps in containers,
 - release notes grouped from the merged commits,
@@ -34,11 +34,11 @@ Until this is done, releases skip the cask and everything else still publishes.
 2. Create a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) with access to only that repository and **Contents: read and write**.
 3. Add it to this repository as an Actions secret named `HOMEBREW_TAP_GITHUB_TOKEN` (Settings → Secrets and variables → Actions).
 
-The next release commits `Casks/muscles.rb` to the tap, and `brew install rossedman/tap/muscles` works from then on. The cask installs the completions and man page too.
+The next release commits `Casks/muscles.rb` to the tap, and `brew install rossedman/tap/muscles` works from then on. The cask installs `docker-muscles`, the completions and the man page too.
 
 ## The container image
 
 The release workflow logs in to `ghcr.io` with the workflow's `GITHUB_TOKEN` (it has `packages: write`). The first push creates the package as private: make it public once under the package's settings on GitHub.
 
 !!! note "macOS Gatekeeper"
-    The binaries aren't notarized. The cask clears the quarantine flag after installing, so Homebrew users see no prompt. If you download an archive by hand, run `xattr -d com.apple.quarantine muscles` once, or allow it in System Settings → Privacy & Security.
+    The binaries aren't notarized. The cask clears the quarantine flag after installing, so Homebrew users see no prompt. If you download an archive by hand, run `xattr -d com.apple.quarantine muscles docker-muscles` once, or allow it in System Settings → Privacy & Security.
