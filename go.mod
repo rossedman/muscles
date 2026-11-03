@@ -6,7 +6,7 @@ toolchain go1.26.10
 
 require (
 	charm.land/lipgloss/v2 v2.0.6
-	github.com/bmatcuk/doublestar/v4 v4.10.3
+	github.com/bmatcuk/doublestar/v4 v4.10.4
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/charmbracelet/x/ansi v0.11.9
@@ -16,7 +16,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
-	go.yaml.in/yaml/v3 v3.0.5
+	go.yaml.in/yaml/v3 v3.0.6
 )
 
 require (
