@@ -5,14 +5,14 @@ go 1.26.0
 toolchain go1.26.10
 
 require (
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.1
 	github.com/bmatcuk/doublestar/v4 v4.10.4
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/charmbracelet/colorprofile v0.4.3
-	github.com/charmbracelet/x/ansi v0.11.9
+	github.com/charmbracelet/x/ansi v0.11.10
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/google/go-containerregistry v0.22.1
-	github.com/klauspost/compress v1.20.3
+	github.com/klauspost/compress v1.20.5
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
 	github.com/spf13/viper v1.21.0
